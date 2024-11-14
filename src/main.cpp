@@ -349,6 +349,7 @@ int main(int argc, char** argv) {
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
+
     init_graphics();
 
     ImGuiRenderer imgui(window);
@@ -398,6 +399,7 @@ int main(int argc, char** argv) {
             {
                 PROFILE_GPU("Tonemap");
 
+                glDisable(GL_CULL_FACE); // Dont apply backface culling to tonemapping triangle
                 renderer.tone_map_framebuffer.bind(false, true);
                 tonemap_program->bind();
                 tonemap_program->set_uniform(HASH("exposure"), exposure);
