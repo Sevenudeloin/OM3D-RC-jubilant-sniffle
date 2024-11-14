@@ -1,6 +1,8 @@
 /build/
 *.user
 
+/TP/build/debug/
+
 # Prerequisites
 *.d
 
