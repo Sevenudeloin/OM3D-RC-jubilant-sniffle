@@ -5,6 +5,8 @@
 #include <TypedBuffer.h>
 #include <Vertex.h>
 
+#include <glm/vec3.hpp>
+
 #include <vector>
 
 namespace OM3D {
@@ -28,6 +30,9 @@ class StaticMesh : NonCopyable {
     private:
         TypedBuffer<Vertex> _vertex_buffer;
         TypedBuffer<u32> _index_buffer;
+
+        glm::vec3 _bounding_sphere_center;
+        float _bounding_sphere_radius;
 };
 
 }
