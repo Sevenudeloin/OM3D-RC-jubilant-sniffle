@@ -27,6 +27,9 @@ class StaticMesh : NonCopyable {
 
         void draw() const;
 
+        glm::vec3 bounding_sphere_center() const;
+        float bounding_sphere_radius() const;
+
     private:
         TypedBuffer<Vertex> _vertex_buffer;
         TypedBuffer<u32> _index_buffer;

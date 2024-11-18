@@ -1,6 +1,7 @@
 #include "SceneObject.h"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <memory>
 
 namespace OM3D {
 
@@ -16,6 +17,7 @@ void SceneObject::render() const {
 
     _material->set_uniform(HASH("model"), transform());
     _material->bind();
+    if (_mesh)
     _mesh->draw();
 }
 
@@ -25,6 +27,10 @@ void SceneObject::set_transform(const glm::mat4& tr) {
 
 const glm::mat4& SceneObject::transform() const {
     return _transform;
+}
+
+std::shared_ptr<StaticMesh> SceneObject::mesh() const {
+    return _mesh;
 }
 
 }

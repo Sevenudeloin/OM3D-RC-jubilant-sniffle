@@ -26,21 +26,21 @@ static std::pair<glm::vec3, float> compute_mesh_centroid(const MeshData& mesh_da
     for (const Vertex& v : mesh_data.vertices) {
         glm::vec3 v_pos = v.position;
 
-        min_corner.x = std::min(min_corner.x, v_pos.x)
-        min_corner.y = std::min(min_corner.y, v_pos.y)
-        min_corner.z = std::min(min_corner.z, v_pos.z)
+        min_corner.x = std::min(min_corner.x, v_pos.x);
+        min_corner.y = std::min(min_corner.y, v_pos.y);
+        min_corner.z = std::min(min_corner.z, v_pos.z);
 
-        max_corner.x = std::max(max_corner.x, v_pos.x)
-        max_corner.y = std::max(max_corner.y, v_pos.y)
-        max_corner.z = std::max(max_corner.z, v_pos.z)
+        max_corner.x = std::max(max_corner.x, v_pos.x);
+        max_corner.y = std::max(max_corner.y, v_pos.y);
+        max_corner.z = std::max(max_corner.z, v_pos.z);
     }
 
     // then compute bounding sphere
 
     glm::vec3 bounding_sphere_center = glm::vec3(
-        (min_corner.x + max_corner.x) / 2.0f;
-        (min_corner.y + may_corner.y) / 2.0f;
-        (min_corner.z + maz_corner.z) / 2.0f;
+        (min_corner.x + max_corner.x) / 2.0f,
+        (min_corner.y + max_corner.y) / 2.0f,
+        (min_corner.z + max_corner.z) / 2.0f
     );
 
     // compute radius simple way
@@ -88,6 +88,14 @@ void StaticMesh::draw() const {
     }
 
     glDrawElements(GL_TRIANGLES, int(_index_buffer.element_count()), GL_UNSIGNED_INT, nullptr);
+}
+
+glm::vec3 StaticMesh::bounding_sphere_center() const {
+    return _bounding_sphere_center;
+}
+
+float StaticMesh::bounding_sphere_radius() const {
+    return _bounding_sphere_radius;
 }
 
 }
