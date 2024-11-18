@@ -1,4 +1,5 @@
 
+#include "ImageFormat.h"
 #include <glad/gl.h>
 
 #define GLFW_INCLUDE_NONE
@@ -309,8 +310,13 @@ struct RendererState {
             state.depth_texture = Texture(size, ImageFormat::Depth32_FLOAT);
             state.lit_hdr_texture = Texture(size, ImageFormat::RGBA16_FLOAT);
             state.tone_mapped_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            // G-buffer
+            state.albedo_texture = Texture(size, ImageFormat::RGB8_sRGB);
+            state.normal_texture = Texture(size, ImageFormat::RGB8_UNORM);
+
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
             state.tone_map_framebuffer = Framebuffer(nullptr, std::array{&state.tone_mapped_texture});
+            state.g_buffer_framebuffer = Framebuffer(nullptr, std::array{&state.albedo_texture, &state.normal_texture});
         }
 
         return state;
@@ -321,9 +327,13 @@ struct RendererState {
     Texture depth_texture;
     Texture lit_hdr_texture;
     Texture tone_mapped_texture;
+    // G-buffer
+    Texture albedo_texture;
+    Texture normal_texture;
 
     Framebuffer main_framebuffer;
     Framebuffer tone_map_framebuffer;
+    Framebuffer g_buffer_framebuffer;
 };
 
 
@@ -356,7 +366,8 @@ int main(int argc, char** argv) {
 
     scene = create_default_scene();
 
-    auto tonemap_program = Program::from_files("tonemap.frag", "screen.vert");
+    // auto tonemap_program = Program::from_files("tonemap.frag", "screen.vert");
+    auto g_buffer_debug_program = Program::from_files("g_buffer_debug.frag", "screen.vert");
     RendererState renderer;
 
     for(;;) {
@@ -387,25 +398,45 @@ int main(int argc, char** argv) {
         {
             PROFILE_GPU("Frame");
 
-            // Render the scene
+            // Store info in G-buffer
             {
-                PROFILE_GPU("Main pass");
+                PROFILE_GPU("G-buffer");
 
-                renderer.main_framebuffer.bind(true, true);
+                renderer.g_buffer_framebuffer.bind(false, true);
                 scene->render();
             }
 
-            // Apply a tonemap in compute shader
+            // Debug g-buffer
             {
-                PROFILE_GPU("Tonemap");
+                PROFILE_GPU("Debug g-buffer");
 
-                glDisable(GL_CULL_FACE); // Dont apply backface culling to tonemapping triangle
-                renderer.tone_map_framebuffer.bind(false, true);
-                tonemap_program->bind();
-                tonemap_program->set_uniform(HASH("exposure"), exposure);
-                renderer.lit_hdr_texture.bind(0);
+                glDisable(GL_CULL_FACE);
+                renderer.tone_map_framebuffer.bind(false, true); // use old tone map but later do other if needed
+                g_buffer_debug_program->bind();
+                renderer.albedo_texture.bind(0);
+                renderer.normal_texture.bind(1);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
+
+            // // Render the scene
+            // {
+            //     PROFILE_GPU("Main pass");
+
+            //     renderer.main_framebuffer.bind(true, true);
+            //     scene->render();
+            // }
+
+            // // Apply a tonemap in compute shader
+            // {
+            //     PROFILE_GPU("Tonemap");
+
+            //     glDisable(GL_CULL_FACE); // Dont apply backface culling to tonemapping triangle
+            //     renderer.tone_map_framebuffer.bind(false, true);
+            //     tonemap_program->bind();
+            //     tonemap_program->set_uniform(HASH("exposure"), exposure);
+            //     renderer.lit_hdr_texture.bind(0);
+            //     glDrawArrays(GL_TRIANGLES, 0, 3);
+            // }
 
             // Blit tonemap result to screen
             {

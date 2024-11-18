@@ -17,6 +17,7 @@ class Scene : NonMovable {
 
         static Result<std::unique_ptr<Scene>> from_gltf(const std::string& file_name);
 
+        void g_buffer_render() const;
         void render() const;
 
         void add_object(SceneObject obj);
