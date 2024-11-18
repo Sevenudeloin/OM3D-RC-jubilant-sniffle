@@ -309,6 +309,7 @@ struct RendererState {
             state.depth_texture = Texture(size, ImageFormat::Depth32_FLOAT);
             state.lit_hdr_texture = Texture(size, ImageFormat::RGBA16_FLOAT);
             state.tone_mapped_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.z_prepass_framebuffer = Framebuffer(&state.depth_texture);
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
             state.tone_map_framebuffer = Framebuffer(nullptr, std::array{&state.tone_mapped_texture});
         }
@@ -322,6 +323,7 @@ struct RendererState {
     Texture lit_hdr_texture;
     Texture tone_mapped_texture;
 
+    Framebuffer z_prepass_framebuffer;
     Framebuffer main_framebuffer;
     Framebuffer tone_map_framebuffer;
 };
@@ -387,11 +389,19 @@ int main(int argc, char** argv) {
         {
             PROFILE_GPU("Frame");
 
+            // Z-prepass
+            {
+                PROFILE_GPU("Z-prepass");
+
+                renderer.z_prepass_framebuffer.bind(true, false); // clear depth but not color
+                scene->render();
+            }
+
             // Render the scene
             {
                 PROFILE_GPU("Main pass");
 
-                renderer.main_framebuffer.bind(true, true);
+                renderer.main_framebuffer.bind(false, true); // clear color but not depth
                 scene->render();
             }
 
