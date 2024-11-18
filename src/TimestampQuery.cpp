@@ -22,6 +22,8 @@ namespace profile {
     static std::vector<ProfileZone> ready;
 
     u32 begin_profile_zone(const char* name) {
+        glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, name);
+
         const u32 index = u32(current_frame.size());
 
         // Either you forgot to call process_profile_markers every frame, or you have too many marker
@@ -37,6 +39,8 @@ namespace profile {
     }
 
     void end_profile_zone(u32 zone_id) {
+        glPopDebugGroup();
+
         Marker& marker = current_frame[zone_id];
         marker.cpu_time = program_time() - marker.cpu_time;
         marker.contained_zones = u32(current_frame.size()) - zone_id - 1;
