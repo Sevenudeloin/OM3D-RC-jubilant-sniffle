@@ -25,6 +25,7 @@ static float delta_time = 0.0f;
 static std::unique_ptr<Scene> scene;
 static float exposure = 1.0;
 static std::vector<std::string> scene_files;
+static u32 debug_mode = 0;
 
 namespace OM3D {
 extern bool audit_bindings_before_draw;
@@ -135,6 +136,17 @@ void gui(ImGuiRenderer& imgui) {
             ImGui::DragFloat("Exposure", &exposure, 0.25f, 0.01f, 100.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
             if(exposure != 1.0f && ImGui::Button("Reset")) {
                 exposure = 1.0f;
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Debug")) {
+            if (ImGui::MenuItem("Albedo")) {
+                debug_mode = 0;
+            } else if (ImGui::MenuItem("Normals")) {
+                debug_mode = 1;
+            } else if (ImGui::MenuItem("Depth")) {
+                debug_mode = 2;
             }
             ImGui::EndMenu();
         }
@@ -413,8 +425,10 @@ int main(int argc, char** argv) {
                 glDisable(GL_CULL_FACE);
                 renderer.tone_map_framebuffer.bind(false, true); // use old tone map but later do other if needed
                 g_buffer_debug_program->bind();
-                renderer.albedo_texture.bind(0);
-                renderer.normal_texture.bind(1);
+                g_buffer_debug_program->set_uniform<u32>("debug_mode", debug_mode);
+                renderer.albedo_texture.bind(1);
+                renderer.normal_texture.bind(2);
+                renderer.depth_texture.bind(3); // ?
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
