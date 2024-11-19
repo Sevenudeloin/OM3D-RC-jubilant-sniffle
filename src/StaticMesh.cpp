@@ -2,14 +2,15 @@
 
 #include <glad/gl.h>
 
-#include <algorithm>
 #include <utility>
+
+#include <glm/geometric.hpp>
 
 namespace OM3D {
 
 extern bool audit_bindings_before_draw;
 
-static std::pair<glm::vec3, float> compute_mesh_centroid(const MeshData& mesh_data) {
+static std::pair<glm::vec3, float> compute_mesh_bounding_sphere(const MeshData& mesh_data) {
     // LEGACY
     // for (size_t i = 0; i < mesh_data.indices.size(); i += 3) {
     //     // use const glm::vec3& instead ?
@@ -38,18 +39,27 @@ static std::pair<glm::vec3, float> compute_mesh_centroid(const MeshData& mesh_da
     // then compute bounding sphere
 
     glm::vec3 bounding_sphere_center = glm::vec3(
-        (min_corner.x + max_corner.x) / 2.0f,
-        (min_corner.y + max_corner.y) / 2.0f,
-        (min_corner.z + max_corner.z) / 2.0f
+        (min_corner.x + max_corner.x) * 0.5f,
+        (min_corner.y + max_corner.y) * 0.5f,
+        (min_corner.z + max_corner.z) * 0.5f 
     );
 
-    // compute radius simple way
-    float bounding_sphere_radius = (min_corner + max_corner).length() / 2.0f;
-
     // compute radius best way :
-    // Get the euclidean distance between the center and each of the 8 corners of the box.
-    // Use the largest distance, and the center you found to make a bounding circle. 
-    // TODO
+    glm::vec3 corners[8] = {
+        glm::vec3(min_corner.x, min_corner.y, min_corner.z),
+        glm::vec3(max_corner.x, min_corner.y, min_corner.z),
+        glm::vec3(min_corner.x, max_corner.y, min_corner.z),
+        glm::vec3(max_corner.x, max_corner.y, min_corner.z),
+        glm::vec3(min_corner.x, min_corner.y, max_corner.z),
+        glm::vec3(max_corner.x, min_corner.y, max_corner.z),
+        glm::vec3(min_corner.x, max_corner.y, max_corner.z),
+        glm::vec3(max_corner.x, max_corner.y, max_corner.z)
+    };
+
+    float bounding_sphere_radius = 0.0f;
+    for (const auto& corner : corners) {
+        bounding_sphere_radius = std::max(bounding_sphere_radius, glm::length(corner - bounding_sphere_center));
+    }
 
     return std::make_pair(bounding_sphere_center, bounding_sphere_radius);
 }
@@ -57,7 +67,7 @@ static std::pair<glm::vec3, float> compute_mesh_centroid(const MeshData& mesh_da
 StaticMesh::StaticMesh(const MeshData& data) :
     _vertex_buffer(data.vertices),
     _index_buffer(data.indices) {
-        std::pair<glm::vec3, float> bounding_sphere_info = compute_mesh_centroid(data);
+        std::pair<glm::vec3, float> bounding_sphere_info = compute_mesh_bounding_sphere(data);
         _bounding_sphere_center = bounding_sphere_info.first;
         _bounding_sphere_radius = bounding_sphere_info.second;
 }

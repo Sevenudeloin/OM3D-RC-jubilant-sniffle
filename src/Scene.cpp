@@ -41,7 +41,7 @@ void Scene::set_sun(glm::vec3 direction, glm::vec3 color) {
     _sun_color = color;
 }
 
-static bool is_on_frustum(const Frustum& frustum, const SceneObject& obj, const Camera& camera) {
+static bool is_on_frustum(const Frustum& frustum, const SceneObject& obj) {
     std::shared_ptr<StaticMesh> obj_mesh = obj.mesh();
     glm::vec3 obj_bounding_sphere_center = obj_mesh->bounding_sphere_center();
     float obj_bounding_sphere_radius = obj_mesh->bounding_sphere_radius();
@@ -57,14 +57,14 @@ static bool is_on_frustum(const Frustum& frustum, const SceneObject& obj, const 
 
     const float max_scale = std::max(std::max(global_scale.x, global_scale.y), global_scale.z);
 
-    const float global_radius = obj_bounding_sphere_radius * (0.5f*max_scale);
+    const float global_radius = obj_bounding_sphere_radius * max_scale;
     // const float global_radius = obj_bounding_sphere_radius;
 
-    return (glm::dot(frustum._near_normal, global_center - camera.position()) > -global_radius
-            && glm::dot(frustum._top_normal, global_center - camera.position()) > -global_radius
-            && glm::dot(frustum._bottom_normal, global_center - camera.position()) > -global_radius
-            && glm::dot(frustum._right_normal, global_center - camera.position()) > -global_radius
-            && glm::dot(frustum._left_normal, global_center - camera.position()) > -global_radius);
+    return (glm::dot(frustum._near_normal, global_center) > -global_radius
+            && glm::dot(frustum._top_normal, global_center) > -global_radius
+            && glm::dot(frustum._bottom_normal, global_center) > -global_radius
+            && glm::dot(frustum._right_normal, global_center) > -global_radius
+            && glm::dot(frustum._left_normal, global_center) > -global_radius);
 }
 
 void Scene::render() const {
@@ -100,7 +100,7 @@ void Scene::render() const {
     // Render every object
     for(const SceneObject& obj : _objects) {
         // Frustum culling (ours)
-        if (is_on_frustum(frustum, obj, _camera))
+        if (is_on_frustum(frustum, obj))
         {
             obj.render();
         }
