@@ -9,7 +9,7 @@ layout(location = 0) out vec4 out_color;
 layout(location = 0) uniform uint debug_mode;
 layout(binding = 1) uniform sampler2D in_albedo;
 layout(binding = 2) uniform sampler2D in_normal;
-layout(binding = 3) uniform sampler2D in_depth; // ?
+// layout(binding = 3) uniform sampler2D in_depth; // ?
 
 void main() {
     const ivec2 coord = ivec2(gl_FragCoord.xy);
@@ -27,9 +27,9 @@ void main() {
     }
 
     if (debug_mode == 2) { // depth
-        out_color = vec4(0.0, 0.0, 1.0, 1.0); // in case
+        // out_color = vec4(0.0, 0.0, 1.0, 1.0); // debug
         // float depth = texelFetch(in_depth, coord, 0).r; // ?
-        // depth = pow(depth, 0.35);
-        // out_color = vec4(vec3(depth), 1.0);
+        const float depth = pow(gl_FragCoord.z, 0.35);
+        out_color = vec4(vec3(depth), 1.0);
     }
 }

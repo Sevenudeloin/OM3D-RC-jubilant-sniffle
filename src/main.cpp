@@ -428,7 +428,7 @@ int main(int argc, char** argv) {
                 g_buffer_debug_program->set_uniform<u32>("debug_mode", debug_mode);
                 renderer.albedo_texture.bind(1);
                 renderer.normal_texture.bind(2);
-                renderer.depth_texture.bind(3); // ?
+                // renderer.depth_texture.bind(3); // ?
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
