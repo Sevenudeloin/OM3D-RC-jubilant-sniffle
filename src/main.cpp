@@ -328,7 +328,7 @@ struct RendererState {
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
             state.tone_map_framebuffer = Framebuffer(nullptr, std::array{&state.tone_mapped_texture});
-            state.g_buffer_framebuffer = Framebuffer(nullptr, std::array{&state.albedo_texture, &state.normal_texture});
+            state.g_buffer_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.albedo_texture, &state.normal_texture});
         }
 
         return state;
@@ -414,7 +414,7 @@ int main(int argc, char** argv) {
             {
                 PROFILE_GPU("G-buffer");
 
-                renderer.g_buffer_framebuffer.bind(false, true);
+                renderer.g_buffer_framebuffer.bind(true, true); // Clear depth and color
                 scene->render();
             }
 
@@ -428,7 +428,7 @@ int main(int argc, char** argv) {
                 g_buffer_debug_program->set_uniform<u32>("debug_mode", debug_mode);
                 renderer.albedo_texture.bind(1);
                 renderer.normal_texture.bind(2);
-                // renderer.depth_texture.bind(3); // ?
+                renderer.depth_texture.bind(3); // ?
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
