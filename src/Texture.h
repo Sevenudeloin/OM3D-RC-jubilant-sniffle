@@ -39,6 +39,7 @@ class Texture {
 
         glm::uvec2 size() const;
 
+        // void set_parameter(GLenum pname, GLint param);
 
         static u32 mip_levels(glm::uvec2 size);
 

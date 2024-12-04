@@ -5,6 +5,7 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+#include <shader_structs.h>
 #include <graphics.h>
 #include <Scene.h>
 #include <Texture.h>
@@ -380,7 +381,8 @@ int main(int argc, char** argv) {
     scene = create_default_scene();
 
     // auto tonemap_program = Program::from_files("tonemap.frag", "screen.vert");
-    auto g_buffer_debug_program = Program::from_files("g_buffer_debug.frag", "screen.vert");
+    // auto g_buffer_debug_program = Program::from_files("g_buffer_debug.frag", "screen.vert");
+    auto sun_ambient_program = Program::from_files("sun_ambient.frag", "screen.vert");
     RendererState renderer;
 
     for(;;) {
@@ -419,19 +421,42 @@ int main(int argc, char** argv) {
                 scene->render();
             }
 
-            // Debug g-buffer
+            // Sun/ambient contribution
             {
-                PROFILE_GPU("Debug g-buffer");
+                PROFILE_GPU("Sun/ambient contribution");
 
                 glDisable(GL_CULL_FACE);
-                renderer.tone_map_framebuffer.bind(false, true); // use old tone map but later do other if needed
-                g_buffer_debug_program->bind();
-                g_buffer_debug_program->set_uniform<u32>("debug_mode", debug_mode);
+                renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
+
+                TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
+                {
+                    auto mapping = framedata_buffer.map(AccessType::WriteOnly);
+                    mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
+                    mapping[0].sun_color = scene->sun_color();
+                    mapping[0].sun_dir = glm::normalize(scene->sun_direction());
+                }
+                framedata_buffer.bind(BufferUsage::Uniform, 0);
+
+                sun_ambient_program->bind();
                 renderer.albedo_texture.bind(1);
                 renderer.normal_texture.bind(2);
-                renderer.depth_texture.bind(3); // ?
+                renderer.depth_texture.bind(3);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
+
+            // // Debug g-buffer
+            // {
+            //     PROFILE_GPU("Debug g-buffer");
+
+            //     glDisable(GL_CULL_FACE);
+            //     renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
+            //     g_buffer_debug_program->bind();
+            //     g_buffer_debug_program->set_uniform<u32>("debug_mode", debug_mode);
+            //     renderer.albedo_texture.bind(1);
+            //     renderer.normal_texture.bind(2);
+            //     renderer.depth_texture.bind(3);
+            //     glDrawArrays(GL_TRIANGLES, 0, 3);
+            // }
 
             // // Render the scene
             // {

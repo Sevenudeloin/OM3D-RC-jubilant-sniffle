@@ -26,6 +26,14 @@ Span<const PointLight> Scene::point_lights() const {
     return _point_lights;
 }
 
+glm::vec3 Scene::sun_direction() const {
+    return _sun_direction;
+}
+
+glm::vec3 Scene::sun_color() const {
+    return _sun_color;
+}
+
 Camera& Scene::camera() {
     return _camera;
 }
@@ -67,24 +75,30 @@ void Scene::render() const {
     }
     light_buffer.bind(BufferUsage::Storage, 1);
 
-    Frustum frustum = _camera.build_frustum();
+    // Frustum frustum = _camera.build_frustum();
 
     // Render every object
     for(const SceneObject& obj : _objects) {
-        // Frustum culling (ours)
-        std::shared_ptr<StaticMesh> obj_mesh = obj.mesh();
-        glm::vec3 obj_center_to_cam = _camera.position() - obj_mesh->bounding_sphere_center();
-        float obj_bounding_sphere_radius = obj_mesh->bounding_sphere_radius();
+        // // Frustum culling (ours)
+        // std::shared_ptr<StaticMesh> obj_mesh = obj.mesh();
+        // glm::vec3 obj_center_to_cam = _camera.position() - obj_mesh->bounding_sphere_center();
+        // float obj_bounding_sphere_radius = obj_mesh->bounding_sphere_radius();
 
-        if (glm::dot(obj_center_to_cam, frustum._near_normal) <= obj_bounding_sphere_radius
-            && glm::dot(obj_center_to_cam, frustum._left_normal) <= obj_bounding_sphere_radius
-            && glm::dot(obj_center_to_cam, frustum._right_normal) <= obj_bounding_sphere_radius
-            && glm::dot(obj_center_to_cam, frustum._bottom_normal) <= obj_bounding_sphere_radius
-            && glm::dot(obj_center_to_cam, frustum._top_normal) <= obj_bounding_sphere_radius)
-        {
-            obj.render();
-        }
+        // if (glm::dot(obj_center_to_cam, frustum._near_normal) <= obj_bounding_sphere_radius
+        //     && glm::dot(obj_center_to_cam, frustum._left_normal) <= obj_bounding_sphere_radius
+        //     && glm::dot(obj_center_to_cam, frustum._right_normal) <= obj_bounding_sphere_radius
+        //     && glm::dot(obj_center_to_cam, frustum._bottom_normal) <= obj_bounding_sphere_radius
+        //     && glm::dot(obj_center_to_cam, frustum._top_normal) <= obj_bounding_sphere_radius)
+        // {
+        //     obj.render();
+        // }
+
+        obj.render();
     }
+}
+
+void Scene::setup_sun_framedata_uniform() const {
+    // Fill and bind frame data buffer
 }
 
 }

@@ -5,6 +5,7 @@
 #include <PointLight.h>
 #include <Camera.h>
 
+#include <glm/ext/vector_float3.hpp>
 #include <vector>
 #include <memory>
 
@@ -17,14 +18,17 @@ class Scene : NonMovable {
 
         static Result<std::unique_ptr<Scene>> from_gltf(const std::string& file_name);
 
-        void g_buffer_render() const;
         void render() const;
+        void setup_sun_framedata_uniform() const;
 
         void add_object(SceneObject obj);
         void add_light(PointLight obj);
 
         Span<const SceneObject> objects() const;
         Span<const PointLight> point_lights() const;
+
+        glm::vec3 sun_direction() const;
+        glm::vec3 sun_color() const;
 
         Camera& camera();
         const Camera& camera() const;
