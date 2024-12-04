@@ -29,10 +29,5 @@ void main() {
         float depth = texelFetch(in_depth, coord, 0).r;
         depth = pow(depth, 0.35);
         out_color = vec4(vec3(depth), 1.0);
-
-        // why doesnt work ???
-        // float depth = gl_FragCoord.z;
-        // depth = pow(depth, 0.35);
-        // out_color = vec4(vec3(depth), 1.0);
     }
 }
