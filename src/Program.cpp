@@ -1,4 +1,5 @@
 #include "Program.h"
+#include "defines.h"
 
 #include <glad/gl.h>
 
