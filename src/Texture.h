@@ -1,8 +1,8 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
 
-#include <graphics.h>
-#include <ImageFormat.h>
+#include "graphics.h"
+#include "ImageFormat.h"
 
 #include <glm/vec2.hpp>
 

@@ -1,9 +1,9 @@
 #include "Scene.h"
 
-#include <TypedBuffer.h>
+#include "TypedBuffer.h"
 
 #include <memory>
-#include <shader_structs.h>
+#include "shader_structs.h"
 
 namespace OM3D {
 

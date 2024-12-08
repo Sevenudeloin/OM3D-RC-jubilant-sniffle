@@ -1,7 +1,7 @@
 #ifndef IMAGEFORMAT_H
 #define IMAGEFORMAT_H
 
-#include <utils.h>
+#include "utils.h"
 
 namespace OM3D {
 

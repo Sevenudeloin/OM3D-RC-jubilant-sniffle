@@ -1,9 +1,9 @@
 #ifndef SCENE_H
 #define SCENE_H
 
-#include <SceneObject.h>
-#include <PointLight.h>
-#include <Camera.h>
+#include "SceneObject.h"
+#include "PointLight.h"
+#include "Camera.h"
 
 #include <glm/ext/vector_float3.hpp>
 #include <vector>

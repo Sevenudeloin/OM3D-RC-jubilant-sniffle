@@ -1,8 +1,8 @@
 #ifndef BYTEBUFFER_H
 #define BYTEBUFFER_H
 
-#include <graphics.h>
-#include <BufferMapping.h>
+#include "graphics.h"
+#include "BufferMapping.h"
 
 namespace OM3D {
 

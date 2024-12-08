@@ -1,7 +1,7 @@
 #ifndef TYPEDBUFFER_H
 #define TYPEDBUFFER_H
 
-#include <ByteBuffer.h>
+#include "ByteBuffer.h"
 
 #include <vector>
 

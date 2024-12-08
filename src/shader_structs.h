@@ -12,7 +12,7 @@ namespace shader {
 
 using namespace glm;
 
-#include <../shaders/structs.glsl>
+#include "../shaders/structs.glsl"
 
 }
 }

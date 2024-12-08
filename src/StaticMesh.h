@@ -1,9 +1,9 @@
 #ifndef STATICMESH_H
 #define STATICMESH_H
 
-#include <graphics.h>
-#include <TypedBuffer.h>
-#include <Vertex.h>
+#include "graphics.h"
+#include "TypedBuffer.h"
+#include "Vertex.h"
 
 #include <glm/vec3.hpp>
 

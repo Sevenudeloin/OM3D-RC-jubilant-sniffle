@@ -1,8 +1,8 @@
 #ifndef MATERIAL_H
 #define MATERIAL_H
 
-#include <Program.h>
-#include <Texture.h>
+#include "Program.h"
+#include "Texture.h"
 
 #include <memory>
 #include <vector>

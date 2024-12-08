@@ -3,7 +3,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <utils.h>
+#include "utils.h"
 
 namespace OM3D {
 

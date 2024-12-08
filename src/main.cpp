@@ -5,13 +5,13 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <shader_structs.h>
-#include <graphics.h>
-#include <Scene.h>
-#include <Texture.h>
-#include <Framebuffer.h>
-#include <TimestampQuery.h>
-#include <ImGuiRenderer.h>
+#include "shader_structs.h"
+#include "graphics.h"
+#include "Scene.h"
+#include "Texture.h"
+#include "Framebuffer.h"
+#include "TimestampQuery.h"
+#include "ImGuiRenderer.h"
 
 #include <imgui/imgui.h>
 

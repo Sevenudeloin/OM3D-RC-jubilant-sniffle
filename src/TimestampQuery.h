@@ -1,7 +1,7 @@
 #ifndef TIMESTAMPQUERY_H
 #define TIMESTAMPQUERY_H
 
-#include <graphics.h>
+#include "graphics.h"
 
 #include <string>
 #include <utility>

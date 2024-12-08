@@ -1,8 +1,8 @@
 #ifndef SCENEOBJECT_H
 #define SCENEOBJECT_H
 
-#include <StaticMesh.h>
-#include <Material.h>
+#include "StaticMesh.h"
+#include "Material.h"
 
 #include <memory>
 

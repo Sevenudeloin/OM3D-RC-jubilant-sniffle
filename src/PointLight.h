@@ -1,7 +1,7 @@
 #ifndef POINTLIGHT_H
 #define POINTLIGHT_H
 
-#include <utils.h>
+#include "utils.h"
 
 #include <glm/vec3.hpp>
 

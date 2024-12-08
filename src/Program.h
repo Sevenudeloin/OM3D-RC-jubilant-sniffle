@@ -1,7 +1,7 @@
 #ifndef PROGRAM_H
 #define PROGRAM_H
 
-#include <graphics.h>
+#include "graphics.h"
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>

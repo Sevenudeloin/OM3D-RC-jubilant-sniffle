@@ -1,7 +1,7 @@
 #ifndef BUFFERMAPPING_H
 #define BUFFERMAPPING_H
 
-#include <graphics.h>
+#include "graphics.h"
 
 namespace OM3D {
 
