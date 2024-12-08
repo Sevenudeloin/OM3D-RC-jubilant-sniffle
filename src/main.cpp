@@ -116,6 +116,7 @@ void gui(ImGuiRenderer& imgui) {
     const ImVec4 warning_text_color = ImVec4(1.0f, 0.8f, 0.4f, 1.0f);
 
     static bool open_gpu_profiler = false;
+    static bool display_camera_pos = false;
 
     PROFILE_GPU("GUI");
 
@@ -125,6 +126,7 @@ void gui(ImGuiRenderer& imgui) {
     // ImGui::ShowDemoWindow();
 
     bool open_scene_popup = false;
+
     if(ImGui::BeginMainMenuBar()) {
         if(ImGui::BeginMenu("File")) {
             if(ImGui::MenuItem("Open Scene")) {
@@ -160,6 +162,10 @@ void gui(ImGuiRenderer& imgui) {
 
         if(ImGui::MenuItem("GPU Profiler")) {
             open_gpu_profiler = true;
+        }
+
+        if(ImGui::MenuItem("Camera pos")) {
+            display_camera_pos = !display_camera_pos;
         }
 
         ImGui::Separator();
@@ -277,6 +283,20 @@ void gui(ImGuiRenderer& imgui) {
                 ImGui::EndTable();
             }
         }
+        ImGui::End();
+    }
+
+    if (display_camera_pos) {
+        auto cam_view_mat = scene->camera().view_matrix();
+
+        glm::mat3 rotation = glm::mat3(cam_view_mat);
+        glm::vec3 translation = glm::vec3(cam_view_mat[3]);
+        glm::vec3 cam_pos = -glm::transpose(rotation) * translation;
+
+        ImGui::Begin("Camera Position", &display_camera_pos); // Create a window with a close button
+        ImGui::Text("X: %.3f", cam_pos.x);
+        ImGui::Text("Y: %.3f", cam_pos.y);
+        ImGui::Text("Z: %.3f", cam_pos.z);
         ImGui::End();
     }
 }
