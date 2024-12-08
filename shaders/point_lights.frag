@@ -10,9 +10,13 @@ layout(binding = 0) uniform Data {
     FrameData frame;
 };
 
-layout(binding = 1) uniform sampler2D in_albedo;
-layout(binding = 2) uniform sampler2D in_normal;
-layout(binding = 3) uniform sampler2D in_depth;
+layout(binding = 1) uniform PointLightsData {
+    PointLight point_lights[32]; // for now put 32 to have margin, actual pointlights would be at the start anyway
+};
+
+layout(binding = 2) uniform sampler2D in_albedo;
+layout(binding = 3) uniform sampler2D in_normal;
+layout(binding = 4) uniform sampler2D in_depth;
 
 
 vec3 unproject(vec2 uv, float depth, mat4 inv_viewproj) {
@@ -37,7 +41,11 @@ void main() {
 
         vec3 color = vec3(0.0);
 
-        // for (uint i = 0; i < frame.point_light_count; i++) { do stuff }
+        for (uint i = 0; i < frame.point_light_count; i++) {
+            // vec3 point_light_dir = point_lights[i].position - actual_pos;
+            // color += point_lights[i].color * max(dot(point_light_dir, normal), 0.0) * albedo;
+            color += point_lights[i].color * albedo;
+        }
 
         out_color = vec4(color, 1.0);
 

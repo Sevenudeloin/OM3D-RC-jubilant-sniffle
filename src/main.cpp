@@ -383,6 +383,7 @@ int main(int argc, char** argv) {
     // auto tonemap_program = Program::from_files("tonemap.frag", "screen.vert");
     // auto g_buffer_debug_program = Program::from_files("g_buffer_debug.frag", "screen.vert");
     auto sun_ambient_program = Program::from_files("sun_ambient.frag", "screen.vert");
+    auto point_lights_program = Program::from_files("point_lights.frag", "screen.vert");
     RendererState renderer;
 
     for(;;) {
@@ -422,8 +423,31 @@ int main(int argc, char** argv) {
             }
 
             // Sun/ambient contribution
+            // {
+            //     PROFILE_GPU("Sun/ambient contribution");
+
+            //     glDisable(GL_CULL_FACE);
+            //     renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
+
+            //     TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
+            //     {
+            //         auto mapping = framedata_buffer.map(AccessType::WriteOnly);
+            //         mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
+            //         mapping[0].sun_color = scene->sun_color();
+            //         mapping[0].sun_dir = glm::normalize(scene->sun_direction());
+            //     }
+            //     framedata_buffer.bind(BufferUsage::Uniform, 0);
+
+            //     sun_ambient_program->bind();
+            //     renderer.albedo_texture.bind(1);
+            //     renderer.normal_texture.bind(2);
+            //     renderer.depth_texture.bind(3);
+            //     glDrawArrays(GL_TRIANGLES, 0, 3);
+            // }
+
+            // Point lights contribution
             {
-                PROFILE_GPU("Sun/ambient contribution");
+                PROFILE_GPU("Point lights contribution");
 
                 glDisable(GL_CULL_FACE);
                 renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
@@ -432,15 +456,27 @@ int main(int argc, char** argv) {
                 {
                     auto mapping = framedata_buffer.map(AccessType::WriteOnly);
                     mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
-                    mapping[0].sun_color = scene->sun_color();
-                    mapping[0].sun_dir = glm::normalize(scene->sun_direction());
+                    mapping[0].point_light_count = scene->point_lights().size();
                 }
                 framedata_buffer.bind(BufferUsage::Uniform, 0);
 
-                sun_ambient_program->bind();
-                renderer.albedo_texture.bind(1);
-                renderer.normal_texture.bind(2);
-                renderer.depth_texture.bind(3);
+                // FIXME THATS UGLY
+                TypedBuffer<shader::PointLight> point_lights_buffer(nullptr, 32);
+                {
+                    auto mapping = point_lights_buffer.map(AccessType::WriteOnly);
+                    shader::PointLight* actual_buffer = mapping.data();
+                    for (size_t i = 0; i < scene->point_lights().size(); i++) {
+                        actual_buffer[i].position = scene->point_lights()[i].position();
+                        actual_buffer[i].radius = scene->point_lights()[i].radius();
+                        actual_buffer[i].color = scene->point_lights()[i].color();
+                    }
+                }
+                framedata_buffer.bind(BufferUsage::Uniform, 1);
+
+                point_lights_program->bind();
+                renderer.albedo_texture.bind(2);
+                renderer.normal_texture.bind(3);
+                renderer.depth_texture.bind(4);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
