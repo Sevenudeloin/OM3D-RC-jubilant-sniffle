@@ -476,11 +476,10 @@ int main(int argc, char** argv) {
                 {
                     auto mapping = framedata_buffer.map(AccessType::WriteOnly);
                     mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
-                    mapping[0].point_light_count = scene->point_lights().size();
+                    mapping[0].point_light_count = static_cast<u32>(scene->point_lights().size()); // u32 cause uint in glsl struct
                 }
                 framedata_buffer.bind(BufferUsage::Uniform, 0);
 
-                // FIXME THATS UGLY
                 TypedBuffer<shader::PointLight> point_lights_buffer(nullptr, 32);
                 {
                     auto mapping = point_lights_buffer.map(AccessType::WriteOnly);
