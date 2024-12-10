@@ -33,4 +33,8 @@ std::shared_ptr<StaticMesh> SceneObject::mesh() const {
     return _mesh;
 }
 
+std::shared_ptr<Material> SceneObject::material() const {
+    return _material;
+}
+
 }

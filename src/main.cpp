@@ -1,5 +1,6 @@
 
 #include "ImageFormat.h"
+#include "SceneObject.h"
 #include <glad/gl.h>
 
 #define GLFW_INCLUDE_NONE
@@ -439,6 +440,11 @@ int main(int argc, char** argv) {
                 PROFILE_GPU("G-buffer");
 
                 renderer.g_buffer_framebuffer.bind(true, true); // Clear depth and color
+
+                for (const SceneObject& object : scene->objects()) {
+                    object.material()->set_blend_mode(BlendMode::None);
+                }
+
                 scene->render();
             }
 
@@ -496,7 +502,17 @@ int main(int argc, char** argv) {
                 renderer.albedo_texture.bind(2);
                 renderer.normal_texture.bind(3);
                 renderer.depth_texture.bind(4);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
+
+                for (const SceneObject& object : scene->objects()) {
+                    object.material()->set_blend_mode(BlendMode::Additive);
+                    glEnable(GL_BLEND);
+                    glBlendFunc(GL_ONE, GL_ONE);
+                }
+
+                for (u32 i = 0; i < scene->point_lights().size(); i++) {
+                    point_lights_program->set_uniform<u32>("point_light_i", i);
+                    glDrawArrays(GL_TRIANGLES, 0, 3);
+                }
             }
 
             // // Debug g-buffer

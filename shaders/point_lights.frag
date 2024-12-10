@@ -18,6 +18,8 @@ layout(binding = 2) uniform sampler2D in_albedo;
 layout(binding = 3) uniform sampler2D in_normal;
 layout(binding = 4) uniform sampler2D in_depth;
 
+layout(location = 5) uniform uint point_light_i;
+
 
 vec3 unproject(vec2 uv, float depth, mat4 inv_viewproj) {
     const vec3 ndc = vec3(uv * 2.0 - vec2(1.0), depth);
@@ -39,15 +41,11 @@ void main() {
 
         const vec3 normal = normalize(texelFetch(in_normal, coord, 0).rgb * 2.0 - 1.0);
 
-        vec3 color = vec3(0.0);
+        vec3 point_light_dir = point_lights[point_light_i].position - actual_pos;
+        // vec3 color = point_lights[point_light_i].color * max(dot(point_light_dir, normal), 0.0) * albedo;
+        vec3 color = point_lights[point_light_i].color; // * max(dot(point_light_dir, normal), 0.0) * albedo;
 
-        for (uint i = 0; i < frame.point_light_count; i++) {
-            vec3 point_light_dir = point_lights[i].position - actual_pos;
-            color += point_lights[i].color * max(dot(point_light_dir, normal), 0.0) * albedo;
-            // color += point_lights[i].color * albedo;
-        }
-
-        out_color = vec4(color, 1.0);
+        out_color = vec4(clamp(color, 0.0, 1.0), 1.0);
 
         // out_color = vec4(normal, 1.0);
     }
