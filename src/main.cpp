@@ -20,6 +20,8 @@
 #include <vector>
 #include <filesystem>
 
+#include <glm/gtx/string_cast.hpp>
+
 using namespace OM3D;
 
 
@@ -411,7 +413,7 @@ int main(int argc, char** argv) {
     ImGuiRenderer imgui(window);
 
     scene = create_default_scene();
-    // std::shared_ptr<SceneObject> light_sphere = get_sphere();
+    std::shared_ptr<SceneObject> light_sphere = get_sphere();
 
     // auto tonemap_program = Program::from_files("tonemap.frag", "screen.vert");
     // auto g_buffer_debug_program = Program::from_files("g_buffer_debug.frag", "screen.vert");
@@ -455,23 +457,25 @@ int main(int argc, char** argv) {
                 glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
                 renderer.g_buffer_framebuffer.bind(true, true); // Clear depth and color
 
-                // for (size_t i = 0; i < scene->point_lights().size(); i++) {
-                //     std::shared_ptr<SceneObject> cur_light_sphere = std::make_shared<SceneObject>(*light_sphere);
-                //     // http://www.c-jump.com/bcc/common/Talk3/Math/GLM/W01_0130_glmscale.htm
-                //     glm::mat4 translation_matrix = glm::translate(
-                //         cur_light_sphere->transform(),
-                //         scene->point_lights()[i].position()
-                //     );
-                //     cur_light_sphere->set_transform(glm::scale(
-                //         translation_matrix,
-                //         glm::vec3(scene->point_lights()[i].radius())
-                //     ));
+                for (size_t i = 0; i < scene->point_lights().size(); i++) {
+                    std::shared_ptr<SceneObject> cur_light_sphere = std::make_shared<SceneObject>(*light_sphere);
+                    // http://www.c-jump.com/bcc/common/Talk3/Math/GLM/W01_0130_glmscale.htm
+                    // std::cout << glm::to_string(cur_light_sphere->transform()) << " -> ";
+                    glm::mat4 translation_matrix = glm::translate(
+                        cur_light_sphere->transform(),
+                        scene->point_lights()[i].position()
+                    );
+                    cur_light_sphere->set_transform(glm::scale(
+                        translation_matrix,
+                        glm::vec3(scene->point_lights()[i].radius())
+                    ));
+                    // std::cout << glm::to_string(cur_light_sphere->transform()) << "\n";
 
-                //     cur_light_sphere->material()->set_blend_mode(BlendMode::InnerFace);
-                //     cur_light_sphere->material()->set_depth_test_mode(DepthTestMode::Readonly);
+                    cur_light_sphere->material()->set_blend_mode(BlendMode::InnerFace);
+                    cur_light_sphere->material()->set_depth_test_mode(DepthTestMode::Readonly);
 
-                //     scene->add_object(*cur_light_sphere);
-                // }
+                    scene->add_object(*cur_light_sphere);
+                }
 
                 scene->render();
             }
