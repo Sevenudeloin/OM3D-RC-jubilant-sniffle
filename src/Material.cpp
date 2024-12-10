@@ -53,7 +53,7 @@ void Material::bind() const {
         break;
     
         case BlendMode::InnerFace:
-            glDisable(GL_BLEND);
+            glDisable(GL_BLEND); // ?
             glEnable(GL_CULL_FACE);
             glCullFace(GL_FRONT);
             glFrontFace(GL_CCW);

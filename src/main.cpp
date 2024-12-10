@@ -467,9 +467,9 @@ int main(int argc, char** argv) {
                     );
                     cur_light_sphere->set_transform(glm::scale(
                         translation_matrix,
-                        glm::vec3(scene->point_lights()[i].radius())
+                        glm::vec3(scene->point_lights()[i].radius() * 0.1f)
                     ));
-                    // std::cout << glm::to_string(cur_light_sphere->transform()) << "\n";
+                    // std::cout << scene->point_lights()[i].radius() << "\n";
 
                     cur_light_sphere->material()->set_blend_mode(BlendMode::InnerFace);
                     cur_light_sphere->material()->set_depth_test_mode(DepthTestMode::Readonly);
