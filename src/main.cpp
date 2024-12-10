@@ -439,11 +439,9 @@ int main(int argc, char** argv) {
             {
                 PROFILE_GPU("G-buffer");
 
+                // glClearColor(0.5f, 0.7f, 0.8f, 0.0f);
+                glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
                 renderer.g_buffer_framebuffer.bind(true, true); // Clear depth and color
-
-                for (const SceneObject& object : scene->objects()) {
-                    object.material()->set_blend_mode(BlendMode::None);
-                }
 
                 scene->render();
             }
@@ -476,6 +474,8 @@ int main(int argc, char** argv) {
                 PROFILE_GPU("Point lights contribution");
 
                 glDisable(GL_CULL_FACE);
+                glClearColor(0.0, 0.0, 0.0, 0.0);
+
                 renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
 
                 TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
@@ -503,12 +503,9 @@ int main(int argc, char** argv) {
                 renderer.normal_texture.bind(3);
                 renderer.depth_texture.bind(4);
 
-                for (const SceneObject& object : scene->objects()) {
-                    object.material()->set_blend_mode(BlendMode::Additive);
-                    glEnable(GL_BLEND);
-                    glBlendFunc(GL_ONE, GL_ONE);
-                }
-
+                // Additive blending
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_ONE, GL_ONE);
                 for (u32 i = 0; i < scene->point_lights().size(); i++) {
                     point_lights_program->set_uniform<u32>("point_light_i", i);
                     glDrawArrays(GL_TRIANGLES, 0, 3);
