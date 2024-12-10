@@ -13,13 +13,15 @@ enum class BlendMode {
     None,
     Alpha,
     Additive,
+    InnerFace,
 };
 
 enum class DepthTestMode {
     Standard,
     Reversed,
     Equal,
-    None
+    Readonly,
+    None,
 };
 
 class Material {

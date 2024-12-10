@@ -441,6 +441,11 @@ Result<std::unique_ptr<Scene>> Scene::from_gltf(const std::string& file_name) {
                 material = mat;
             }
 
+            else // Ours
+            {
+                material = Material::empty_material();
+            }
+
             auto scene_object = SceneObject(std::make_shared<StaticMesh>(mesh.value), std::move(material));
             scene_object.set_transform(node_transform);
             scene->add_object(std::move(scene_object));
