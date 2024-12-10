@@ -490,7 +490,7 @@ int main(int argc, char** argv) {
                         actual_buffer[i].color = scene->point_lights()[i].color();
                     }
                 }
-                framedata_buffer.bind(BufferUsage::Uniform, 1);
+                point_lights_buffer.bind(BufferUsage::Uniform, 1);
 
                 point_lights_program->bind();
                 renderer.albedo_texture.bind(2);
