@@ -34,8 +34,8 @@ void main() {
         vec3 actual_pos = unproject(out_uv, depth, frame.camera.inv_view_proj);
 
         const vec3 normal = normalize(texelFetch(in_normal, coord, 0).rgb * 2.0 - 1.0);
-        vec3 color = frame.sun_color * max(dot(frame.sun_dir, normal), 0.0) * albedo;
-        // vec3 color = vec3(0.9, 0.3, 0.1) * max(dot(vec3(0.2, 1.0, 0.1), normal), 0.0) * albedo;
+        // vec3 color = frame.sun_color * max(dot(frame.sun_dir, normal), 0.0) * albedo;
+        vec3 color = vec3(0.9, 0.3, 0.1) * max(dot(vec3(0.2, 1.0, 0.1), normal), 0.0) * albedo; // hardcoded for tests only
 
         out_color = vec4(color, 1.0);
 

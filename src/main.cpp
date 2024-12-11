@@ -481,27 +481,27 @@ int main(int argc, char** argv) {
             }
 
             // Sun/ambient contribution
-            // {
-            //     PROFILE_GPU("Sun/ambient contribution");
+            {
+                PROFILE_GPU("Sun/ambient contribution");
 
-            //     glDisable(GL_CULL_FACE);
-            //     renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
+                glDisable(GL_CULL_FACE);
+                renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
 
-            //     TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
-            //     {
-            //         auto mapping = framedata_buffer.map(AccessType::WriteOnly);
-            //         mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
-            //         mapping[0].sun_color = scene->sun_color();
-            //         mapping[0].sun_dir = glm::normalize(scene->sun_direction());
-            //     }
-            //     framedata_buffer.bind(BufferUsage::Uniform, 0);
+                TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
+                {
+                    auto mapping = framedata_buffer.map(AccessType::WriteOnly);
+                    mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
+                    mapping[0].sun_color = scene->sun_color();
+                    mapping[0].sun_dir = glm::normalize(scene->sun_direction());
+                }
+                framedata_buffer.bind(BufferUsage::Uniform, 0);
 
-            //     sun_ambient_program->bind();
-            //     renderer.albedo_texture.bind(1);
-            //     renderer.normal_texture.bind(2);
-            //     renderer.depth_texture.bind(3);
-            //     glDrawArrays(GL_TRIANGLES, 0, 3);
-            // }
+                sun_ambient_program->bind();
+                renderer.albedo_texture.bind(1);
+                renderer.normal_texture.bind(2);
+                renderer.depth_texture.bind(3);
+                glDrawArrays(GL_TRIANGLES, 0, 3);
+            }
 
             // Point lights contribution
             {
