@@ -42,8 +42,8 @@ void main() {
         const vec3 normal = normalize(texelFetch(in_normal, coord, 0).rgb * 2.0 - 1.0);
 
         vec3 point_light_dir = point_lights[point_light_i].position - actual_pos;
-        // vec3 color = point_lights[point_light_i].color * max(dot(point_light_dir, normal), 0.0) * albedo;
-        vec3 color = point_lights[point_light_i].color; // * max(dot(point_light_dir, normal), 0.0) * albedo;
+        vec3 color = point_lights[point_light_i].color * max(dot(point_light_dir, normal), 0.0) * albedo;
+        // vec3 color = point_lights[point_light_i].color; // * max(dot(point_light_dir, normal), 0.0) * albedo;
 
         out_color = vec4(clamp(color, 0.0, 1.0), 1.0);
 
