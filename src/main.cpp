@@ -27,9 +27,10 @@ using namespace OM3D;
 
 static float delta_time = 0.0f;
 static std::unique_ptr<Scene> scene;
-static float exposure = 1.0;
+// static float exposure = 1.0;
 static std::vector<std::string> scene_files;
-static u32 debug_mode = 0;
+// static u32 debug_mode = 0;
+static bool flatland_clear_screen = false;
 
 namespace OM3D {
 extern bool audit_bindings_before_draw;
@@ -124,7 +125,7 @@ void gui(ImGuiRenderer& imgui) {
     const ImVec4 warning_text_color = ImVec4(1.0f, 0.8f, 0.4f, 1.0f);
 
     static bool open_gpu_profiler = false;
-    static bool display_camera_pos = false;
+    // static bool display_camera_pos = false;
 
     PROFILE_GPU("GUI");
 
@@ -135,6 +136,8 @@ void gui(ImGuiRenderer& imgui) {
 
     bool open_scene_popup = false;
 
+    flatland_clear_screen = false;
+
     if(ImGui::BeginMainMenuBar()) {
         if(ImGui::BeginMenu("File")) {
             if(ImGui::MenuItem("Open Scene")) {
@@ -143,24 +146,29 @@ void gui(ImGuiRenderer& imgui) {
             ImGui::EndMenu();
         }
 
-        if(ImGui::BeginMenu("Exposure")) {
-            ImGui::DragFloat("Exposure", &exposure, 0.25f, 0.01f, 100.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
-            if(exposure != 1.0f && ImGui::Button("Reset")) {
-                exposure = 1.0f;
-            }
+        if (ImGui::BeginMenu("Clear screen")) {
+            flatland_clear_screen = true;
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("Debug")) {
-            if (ImGui::MenuItem("Albedo")) {
-                debug_mode = 0;
-            } else if (ImGui::MenuItem("Normals")) {
-                debug_mode = 1;
-            } else if (ImGui::MenuItem("Depth")) {
-                debug_mode = 2;
-            }
-            ImGui::EndMenu();
-        }
+        // if(ImGui::BeginMenu("Exposure")) {
+        //     ImGui::DragFloat("Exposure", &exposure, 0.25f, 0.01f, 100.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+        //     if(exposure != 1.0f && ImGui::Button("Reset")) {
+        //         exposure = 1.0f;
+        //     }
+        //     ImGui::EndMenu();
+        // }
+
+        // if (ImGui::BeginMenu("Debug")) {
+        //     if (ImGui::MenuItem("Albedo")) {
+        //         debug_mode = 0;
+        //     } else if (ImGui::MenuItem("Normals")) {
+        //         debug_mode = 1;
+        //     } else if (ImGui::MenuItem("Depth")) {
+        //         debug_mode = 2;
+        //     }
+        //     ImGui::EndMenu();
+        // }
 
         if(scene && ImGui::BeginMenu("Scene Info")) {
             ImGui::Text("%u objects", u32(scene->objects().size()));
@@ -172,9 +180,9 @@ void gui(ImGuiRenderer& imgui) {
             open_gpu_profiler = true;
         }
 
-        if(ImGui::MenuItem("Camera pos")) {
-            display_camera_pos = !display_camera_pos;
-        }
+        // if(ImGui::MenuItem("Camera pos")) {
+        //     display_camera_pos = !display_camera_pos;
+        // }
 
         ImGui::Separator();
         ImGui::TextUnformatted(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
@@ -294,19 +302,19 @@ void gui(ImGuiRenderer& imgui) {
         ImGui::End();
     }
 
-    if (display_camera_pos) {
-        auto cam_view_mat = scene->camera().view_matrix();
+    // if (display_camera_pos) {
+    //     auto cam_view_mat = scene->camera().view_matrix();
 
-        glm::mat3 rotation = glm::mat3(cam_view_mat);
-        glm::vec3 translation = glm::vec3(cam_view_mat[3]);
-        glm::vec3 cam_pos = -glm::transpose(rotation) * translation;
+    //     glm::mat3 rotation = glm::mat3(cam_view_mat);
+    //     glm::vec3 translation = glm::vec3(cam_view_mat[3]);
+    //     glm::vec3 cam_pos = -glm::transpose(rotation) * translation;
 
-        ImGui::Begin("Camera Position", &display_camera_pos); // Create a window with a close button
-        ImGui::Text("X: %.3f", cam_pos.x);
-        ImGui::Text("Y: %.3f", cam_pos.y);
-        ImGui::Text("Z: %.3f", cam_pos.z);
-        ImGui::End();
-    }
+    //     ImGui::Begin("Camera Position", &display_camera_pos); // Create a window with a close button
+    //     ImGui::Text("X: %.3f", cam_pos.x);
+    //     ImGui::Text("Y: %.3f", cam_pos.y);
+    //     ImGui::Text("Z: %.3f", cam_pos.z);
+    //     ImGui::End();
+    // }
 }
 
 
@@ -452,8 +460,8 @@ int main(int argc, char** argv) {
             {
                 PROFILE_GPU("Flatland");
 
-                glDisable(GL_CULL_FACE); // Dont apply backface culling to tonemapping triangle
-                renderer.flatland_framebuffer.bind(false, false);
+                glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
+                renderer.flatland_framebuffer.bind(false, flatland_clear_screen);
                 flatland_program->bind();
                 flatland_program->set_uniform<u32>("is_drawing", is_drawing); // set bool as u32
                 flatland_program->set_uniform<glm::vec2>("mouse_pos", glm::vec2(mouse_pos.x, 900 - mouse_pos.y));
