@@ -22,9 +22,15 @@ void main() {
 
     if (is_drawing) {
         vec2 frag_pos = in_uv * screen_res;
-        float frag_mouse_dist = length(frag_pos - mouse_pos);
 
-        if (frag_mouse_dist < line_width) {
+        vec2 line_vec = mouse_pos - prev_mouse_pos;
+        vec2 start_frag_vec = frag_pos - prev_mouse_pos;
+        float t = clamp(dot(line_vec, start_frag_vec) / dot(line_vec, line_vec), 0.0, 1.0);
+        vec2 closest_point = prev_mouse_pos + t * line_vec;
+
+        float frag_dist = length(frag_pos - closest_point);
+
+        if (frag_dist < line_width) {
             prev_color = vec4(line_color, 1.0);
         }
     }

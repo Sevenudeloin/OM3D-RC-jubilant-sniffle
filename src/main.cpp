@@ -31,6 +31,7 @@ static std::unique_ptr<Scene> scene;
 static std::vector<std::string> scene_files;
 // static u32 debug_mode = 0;
 
+static glm::dvec2 prev_mouse_pos;
 static bool flatland_clear_screen = false;
 static float flatland_drawing_color[4] = { 1.0, 1.0, 1.0, 1.0};
 static int flatland_line_width = 10; // in pixels
@@ -121,6 +122,8 @@ void process_inputs(GLFWwindow* window, Camera& camera) {
 void process_inputs_flatland(GLFWwindow* window, glm::dvec2& mouse_pos, bool& is_drawing) {
     glfwGetCursorPos(window, &mouse_pos.x, &mouse_pos.y);
     is_drawing = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+
+    prev_mouse_pos = mouse_pos;
 }
 
 void gui(ImGuiRenderer& imgui) {
@@ -497,6 +500,7 @@ int main(int argc, char** argv) {
                 flatland_program->bind();
                 flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(1600, 900));
                 flatland_program->set_uniform<u32>("is_drawing", is_drawing); // set bool as u32
+                flatland_program->set_uniform<glm::vec2>("prev_mouse_pos", glm::vec2(prev_mouse_pos.x, 900 - prev_mouse_pos.y));
                 flatland_program->set_uniform<glm::vec2>("mouse_pos", glm::vec2(mouse_pos.x, 900 - mouse_pos.y));
                 flatland_program->set_uniform<glm::vec3>("line_color", glm::vec3(
                     flatland_drawing_color[0], flatland_drawing_color[1], flatland_drawing_color[2]
