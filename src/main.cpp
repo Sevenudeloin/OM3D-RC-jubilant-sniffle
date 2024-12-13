@@ -346,11 +346,14 @@ struct RendererState {
             state.depth_texture = Texture(size, ImageFormat::Depth32_FLOAT);
             state.lit_hdr_texture = Texture(size, ImageFormat::RGBA16_FLOAT);
             state.tone_mapped_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            // Flatland
+            state.flatland_texture = Texture(size, ImageFormat::RGBA8_UNORM);
             // G-buffer
             state.albedo_texture = Texture(size, ImageFormat::RGB8_sRGB);
             state.normal_texture = Texture(size, ImageFormat::RGB8_UNORM);
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
+            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_texture});
             state.tone_map_framebuffer = Framebuffer(nullptr, std::array{&state.tone_mapped_texture});
             state.g_buffer_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.albedo_texture, &state.normal_texture});
         }
@@ -363,12 +366,15 @@ struct RendererState {
     Texture depth_texture;
     Texture lit_hdr_texture;
     Texture tone_mapped_texture;
+    // Flatland
+    Texture flatland_texture;
     // G-buffer
     Texture albedo_texture;
     Texture normal_texture;
 
     Framebuffer z_prepass_framebuffer;
     Framebuffer main_framebuffer;
+    Framebuffer flatland_framebuffer;
     Framebuffer tone_map_framebuffer;
     Framebuffer g_buffer_framebuffer;
 };
@@ -413,12 +419,8 @@ int main(int argc, char** argv) {
     ImGuiRenderer imgui(window);
 
     scene = create_default_scene();
-    std::shared_ptr<SceneObject> light_sphere = get_sphere();
 
-    // auto tonemap_program = Program::from_files("tonemap.frag", "screen.vert");
-    // auto g_buffer_debug_program = Program::from_files("g_buffer_debug.frag", "screen.vert");
-    auto sun_ambient_program = Program::from_files("sun_ambient.frag", "screen.vert");
-    auto point_lights_program = Program::from_files("point_lights.frag", "screen.vert");
+    auto flatland_program = Program::from_files("flatland.frag", "screen.vert");
     RendererState renderer;
 
     for(;;) {
@@ -441,151 +443,30 @@ int main(int argc, char** argv) {
 
         update_delta_time();
 
-        if(const auto& io = ImGui::GetIO(); !io.WantCaptureMouse && !io.WantCaptureKeyboard) {
-            process_inputs(window, scene->camera());
-        }
+        // if(const auto& io = ImGui::GetIO(); !io.WantCaptureMouse && !io.WantCaptureKeyboard) {
+        //     process_inputs(window, scene->camera());
+        // }
 
         // Draw everything
         {
             PROFILE_GPU("Frame");
 
-            // Store info in G-buffer
+            // Apply a tonemap in compute shader
             {
-                PROFILE_GPU("G-buffer");
+                PROFILE_GPU("Flatland");
 
-                // glClearColor(0.5f, 0.7f, 0.8f, 0.0f);
-                glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-                renderer.g_buffer_framebuffer.bind(true, true); // Clear depth and color
-
-                for (size_t i = 0; i < scene->point_lights().size(); i++) {
-                    std::shared_ptr<SceneObject> cur_light_sphere = std::make_shared<SceneObject>(*light_sphere);
-                    // http://www.c-jump.com/bcc/common/Talk3/Math/GLM/W01_0130_glmscale.htm
-                    // std::cout << glm::to_string(cur_light_sphere->transform()) << " -> ";
-                    glm::mat4 translation_matrix = glm::translate(
-                        cur_light_sphere->transform(),
-                        scene->point_lights()[i].position()
-                    );
-                    cur_light_sphere->set_transform(glm::scale(
-                        translation_matrix,
-                        glm::vec3(scene->point_lights()[i].radius() * 0.1f)
-                    ));
-                    // std::cout << scene->point_lights()[i].radius() << "\n";
-
-                    cur_light_sphere->material()->set_blend_mode(BlendMode::InnerFace);
-                    cur_light_sphere->material()->set_depth_test_mode(DepthTestMode::Readonly);
-
-                    scene->add_object(*cur_light_sphere);
-                }
-
-                scene->render();
-            }
-
-            // Sun/ambient contribution
-            {
-                PROFILE_GPU("Sun/ambient contribution");
-
-                glDisable(GL_CULL_FACE);
-                renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
-
-                TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
-                {
-                    auto mapping = framedata_buffer.map(AccessType::WriteOnly);
-                    mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
-                    mapping[0].sun_color = scene->sun_color();
-                    mapping[0].sun_dir = glm::normalize(scene->sun_direction());
-                }
-                framedata_buffer.bind(BufferUsage::Uniform, 0);
-
-                sun_ambient_program->bind();
-                renderer.albedo_texture.bind(1);
-                renderer.normal_texture.bind(2);
-                renderer.depth_texture.bind(3);
+                glDisable(GL_CULL_FACE); // Dont apply backface culling to tonemapping triangle
+                renderer.flatland_framebuffer.bind(false, true);
+                flatland_program->bind();
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
-
-            // Point lights contribution
-            {
-                PROFILE_GPU("Point lights contribution");
-
-                glDisable(GL_CULL_FACE);
-                glClearColor(0.0, 0.0, 0.0, 0.0);
-
-                renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
-
-                TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
-                {
-                    auto mapping = framedata_buffer.map(AccessType::WriteOnly);
-                    mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
-                    mapping[0].point_light_count = static_cast<u32>(scene->point_lights().size()); // u32 cause uint in glsl struct
-                }
-                framedata_buffer.bind(BufferUsage::Uniform, 0);
-
-                TypedBuffer<shader::PointLight> point_lights_buffer(nullptr, 32);
-                {
-                    auto mapping = point_lights_buffer.map(AccessType::WriteOnly);
-                    shader::PointLight* actual_buffer = mapping.data();
-                    for (size_t i = 0; i < scene->point_lights().size(); i++) {
-                        actual_buffer[i].position = scene->point_lights()[i].position();
-                        actual_buffer[i].radius = scene->point_lights()[i].radius();
-                        actual_buffer[i].color = scene->point_lights()[i].color();
-                    }
-                }
-                point_lights_buffer.bind(BufferUsage::Uniform, 1);
-
-                point_lights_program->bind();
-                renderer.albedo_texture.bind(2);
-                renderer.normal_texture.bind(3);
-                renderer.depth_texture.bind(4);
-
-                // Additive blending
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_ONE, GL_ONE);
-                for (u32 i = 0; i < scene->point_lights().size(); i++) {
-                    point_lights_program->set_uniform<u32>("point_light_i", i);
-                    glDrawArrays(GL_TRIANGLES, 0, 3);
-                }
-            }
-
-            // // Debug g-buffer
-            // {
-            //     PROFILE_GPU("Debug g-buffer");
-
-            //     glDisable(GL_CULL_FACE);
-            //     renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
-            //     g_buffer_debug_program->bind();
-            //     g_buffer_debug_program->set_uniform<u32>("debug_mode", debug_mode);
-            //     renderer.albedo_texture.bind(1);
-            //     renderer.normal_texture.bind(2);
-            //     renderer.depth_texture.bind(3);
-            //     glDrawArrays(GL_TRIANGLES, 0, 3);
-            // }
-
-            // // Render the scene
-            // {
-            //     PROFILE_GPU("Main pass");
-
-            //     renderer.main_framebuffer.bind(true, true);
-            //     scene->render();
-            // }
-
-            // // Apply a tonemap in compute shader
-            // {
-            //     PROFILE_GPU("Tonemap");
-
-            //     glDisable(GL_CULL_FACE); // Dont apply backface culling to tonemapping triangle
-            //     renderer.tone_map_framebuffer.bind(false, true);
-            //     tonemap_program->bind();
-            //     tonemap_program->set_uniform(HASH("exposure"), exposure);
-            //     renderer.lit_hdr_texture.bind(0);
-            //     glDrawArrays(GL_TRIANGLES, 0, 3);
-            // }
 
             // Blit tonemap result to screen
             {
                 PROFILE_GPU("Blit");
 
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                renderer.tone_map_framebuffer.blit();
+                renderer.flatland_framebuffer.blit();
             }
 
             // Draw GUI on top
