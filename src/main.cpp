@@ -373,21 +373,6 @@ struct RendererState {
     Framebuffer g_buffer_framebuffer;
 };
 
-std::shared_ptr<SceneObject> get_sphere() {
-    auto scene = std::make_unique<Scene>();
-    auto result = Scene::from_gltf(std::string(data_path) + "sphere.glb");
-    ALWAYS_ASSERT(result.is_ok, "Unable to load sphere scene");
-
-    static std::weak_ptr<SceneObject> weak_object;
-    auto object = weak_object.lock();
-    if(!object) {
-        object = std::make_shared<SceneObject>(result.value->objects()[0]);
-        weak_object = object;
-    }
-
-    return object;
-}
-
 int main(int argc, char** argv) {
     DEBUG_ASSERT([] { std::cout << "Debug asserts enabled" << std::endl; return true; }());
 
@@ -413,12 +398,10 @@ int main(int argc, char** argv) {
     ImGuiRenderer imgui(window);
 
     scene = create_default_scene();
-    std::shared_ptr<SceneObject> light_sphere = get_sphere();
 
     // auto tonemap_program = Program::from_files("tonemap.frag", "screen.vert");
     // auto g_buffer_debug_program = Program::from_files("g_buffer_debug.frag", "screen.vert");
     auto sun_ambient_program = Program::from_files("sun_ambient.frag", "screen.vert");
-    auto point_lights_program = Program::from_files("point_lights.frag", "screen.vert");
     RendererState renderer;
 
     for(;;) {
@@ -453,29 +436,8 @@ int main(int argc, char** argv) {
             {
                 PROFILE_GPU("G-buffer");
 
-                // glClearColor(0.5f, 0.7f, 0.8f, 0.0f);
-                glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+                glClearColor(0.5f, 0.7f, 0.8f, 0.0f);
                 renderer.g_buffer_framebuffer.bind(true, true); // Clear depth and color
-
-                for (size_t i = 0; i < scene->point_lights().size(); i++) {
-                    std::shared_ptr<SceneObject> cur_light_sphere = std::make_shared<SceneObject>(*light_sphere);
-                    // http://www.c-jump.com/bcc/common/Talk3/Math/GLM/W01_0130_glmscale.htm
-                    // std::cout << glm::to_string(cur_light_sphere->transform()) << " -> ";
-                    glm::mat4 translation_matrix = glm::translate(
-                        cur_light_sphere->transform(),
-                        scene->point_lights()[i].position()
-                    );
-                    cur_light_sphere->set_transform(glm::scale(
-                        translation_matrix,
-                        glm::vec3(scene->point_lights()[i].radius() * 0.1f)
-                    ));
-                    // std::cout << scene->point_lights()[i].radius() << "\n";
-
-                    cur_light_sphere->material()->set_blend_mode(BlendMode::InnerFace);
-                    cur_light_sphere->material()->set_depth_test_mode(DepthTestMode::Readonly);
-
-                    scene->add_object(*cur_light_sphere);
-                }
 
                 scene->render();
             }
@@ -505,45 +467,45 @@ int main(int argc, char** argv) {
 
             // Point lights contribution
             {
-                PROFILE_GPU("Point lights contribution");
+                // PROFILE_GPU("Point lights contribution");
 
-                glDisable(GL_CULL_FACE);
-                glClearColor(0.0, 0.0, 0.0, 0.0);
+                // glDisable(GL_CULL_FACE);
+                // glClearColor(0.0, 0.0, 0.0, 0.0);
 
-                renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
+                // renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
 
-                TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
-                {
-                    auto mapping = framedata_buffer.map(AccessType::WriteOnly);
-                    mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
-                    mapping[0].point_light_count = static_cast<u32>(scene->point_lights().size()); // u32 cause uint in glsl struct
-                }
-                framedata_buffer.bind(BufferUsage::Uniform, 0);
+                // TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
+                // {
+                //     auto mapping = framedata_buffer.map(AccessType::WriteOnly);
+                //     mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
+                //     mapping[0].point_light_count = static_cast<u32>(scene->point_lights().size()); // u32 cause uint in glsl struct
+                // }
+                // framedata_buffer.bind(BufferUsage::Uniform, 0);
 
-                TypedBuffer<shader::PointLight> point_lights_buffer(nullptr, 32);
-                {
-                    auto mapping = point_lights_buffer.map(AccessType::WriteOnly);
-                    shader::PointLight* actual_buffer = mapping.data();
-                    for (size_t i = 0; i < scene->point_lights().size(); i++) {
-                        actual_buffer[i].position = scene->point_lights()[i].position();
-                        actual_buffer[i].radius = scene->point_lights()[i].radius();
-                        actual_buffer[i].color = scene->point_lights()[i].color();
-                    }
-                }
-                point_lights_buffer.bind(BufferUsage::Uniform, 1);
+                // TypedBuffer<shader::PointLight> point_lights_buffer(nullptr, 32);
+                // {
+                //     auto mapping = point_lights_buffer.map(AccessType::WriteOnly);
+                //     shader::PointLight* actual_buffer = mapping.data();
+                //     for (size_t i = 0; i < scene->point_lights().size(); i++) {
+                //         actual_buffer[i].position = scene->point_lights()[i].position();
+                //         actual_buffer[i].radius = scene->point_lights()[i].radius();
+                //         actual_buffer[i].color = scene->point_lights()[i].color();
+                //     }
+                // }
+                // point_lights_buffer.bind(BufferUsage::Uniform, 1);
 
-                point_lights_program->bind();
-                renderer.albedo_texture.bind(2);
-                renderer.normal_texture.bind(3);
-                renderer.depth_texture.bind(4);
+                // point_lights_program->bind();
+                // renderer.albedo_texture.bind(2);
+                // renderer.normal_texture.bind(3);
+                // renderer.depth_texture.bind(4);
 
-                // Additive blending
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_ONE, GL_ONE);
-                for (u32 i = 0; i < scene->point_lights().size(); i++) {
-                    point_lights_program->set_uniform<u32>("point_light_i", i);
-                    glDrawArrays(GL_TRIANGLES, 0, 3);
-                }
+                // // Additive blending
+                // glEnable(GL_BLEND);
+                // glBlendFunc(GL_ONE, GL_ONE);
+                // for (u32 i = 0; i < scene->point_lights().size(); i++) {
+                //     point_lights_program->set_uniform<u32>("point_light_i", i);
+                //     glDrawArrays(GL_TRIANGLES, 0, 3);
+                // }
             }
 
             // // Debug g-buffer

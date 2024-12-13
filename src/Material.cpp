@@ -60,33 +60,29 @@ void Material::bind() const {
         break;
     }
 
+    glDisable(GL_DEPTH_TEST);
     switch(_depth_test_mode) {
         case DepthTestMode::None:
-            glDisable(GL_DEPTH_TEST);
         break;
 
         case DepthTestMode::Equal:
-            glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_EQUAL);
             glDepthMask(true);
         break;
 
         case DepthTestMode::Standard:
-            glEnable(GL_DEPTH_TEST);
             // We are using reverse-Z
             glDepthFunc(GL_GEQUAL);
             glDepthMask(true);
         break;
 
         case DepthTestMode::Reversed:
-            glEnable(GL_DEPTH_TEST);
             // We are using reverse-Z
             glDepthFunc(GL_LEQUAL);
             glDepthMask(true);
         break;
 
         case DepthTestMode::Readonly:
-            glEnable(GL_DEPTH_TEST);
             glDepthMask(false);
         break;
     }
