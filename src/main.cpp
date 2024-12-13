@@ -30,7 +30,10 @@ static std::unique_ptr<Scene> scene;
 // static float exposure = 1.0;
 static std::vector<std::string> scene_files;
 // static u32 debug_mode = 0;
+
 static bool flatland_clear_screen = false;
+static float flatland_drawing_color[4] = { 1.0, 1.0, 1.0, 1.0};
+static int flatland_line_width = 10; // in pixels
 
 namespace OM3D {
 extern bool audit_bindings_before_draw;
@@ -126,6 +129,8 @@ void gui(ImGuiRenderer& imgui) {
 
     static bool open_gpu_profiler = false;
     // static bool display_camera_pos = false;
+    static bool show_color_picker = false;
+    static bool show_width_slider = false;
 
     PROFILE_GPU("GUI");
 
@@ -148,6 +153,16 @@ void gui(ImGuiRenderer& imgui) {
 
         if (ImGui::BeginMenu("Clear screen")) {
             flatland_clear_screen = true;
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Drawing options")) {
+            if (ImGui::MenuItem("Line color")) {
+                show_color_picker = !show_color_picker;
+            }
+            if (ImGui::MenuItem("Line width")) {
+                show_width_slider = !show_width_slider;
+            }
             ImGui::EndMenu();
         }
 
@@ -298,6 +313,23 @@ void gui(ImGuiRenderer& imgui) {
 
                 ImGui::EndTable();
             }
+        }
+        ImGui::End();
+    }
+
+    if (show_color_picker) {
+        ImGui::SetNextWindowSize(ImVec2(300, 400), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Line color");
+        ImGui::ColorPicker4("Color", flatland_drawing_color);
+        ImGui::End();
+    }
+
+    if (show_width_slider) {
+        ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Line width");
+        ImGui::DragInt("Width", &flatland_line_width, 0.3f, 1, 50, "%d");
+        if(flatland_line_width != 10 && ImGui::Button("Reset")) {
+            flatland_line_width = 10;
         }
         ImGui::End();
     }
@@ -463,8 +495,13 @@ int main(int argc, char** argv) {
                 glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
                 renderer.flatland_framebuffer.bind(false, flatland_clear_screen);
                 flatland_program->bind();
+                flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(1600, 900));
                 flatland_program->set_uniform<u32>("is_drawing", is_drawing); // set bool as u32
                 flatland_program->set_uniform<glm::vec2>("mouse_pos", glm::vec2(mouse_pos.x, 900 - mouse_pos.y));
+                flatland_program->set_uniform<glm::vec3>("line_color", glm::vec3(
+                    flatland_drawing_color[0], flatland_drawing_color[1], flatland_drawing_color[2]
+                ));
+                flatland_program->set_uniform<float>("line_width", static_cast<float>(flatland_line_width));
                 renderer.flatland_texture.bind(0);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
