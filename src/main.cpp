@@ -114,6 +114,11 @@ void process_inputs(GLFWwindow* window, Camera& camera) {
     mouse_pos = new_mouse_pos;
 }
 
+void process_inputs_flatland(GLFWwindow* window, glm::dvec2& mouse_pos, bool& is_drawing) {
+    glfwGetCursorPos(window, &mouse_pos.x, &mouse_pos.y);
+    is_drawing = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+}
+
 void gui(ImGuiRenderer& imgui) {
     const ImVec4 error_text_color = ImVec4(1.0f, 0.3f, 0.3f, 1.0f);
     const ImVec4 warning_text_color = ImVec4(1.0f, 0.8f, 0.4f, 1.0f);
@@ -379,21 +384,6 @@ struct RendererState {
     Framebuffer g_buffer_framebuffer;
 };
 
-std::shared_ptr<SceneObject> get_sphere() {
-    auto scene = std::make_unique<Scene>();
-    auto result = Scene::from_gltf(std::string(data_path) + "sphere.glb");
-    ALWAYS_ASSERT(result.is_ok, "Unable to load sphere scene");
-
-    static std::weak_ptr<SceneObject> weak_object;
-    auto object = weak_object.lock();
-    if(!object) {
-        object = std::make_shared<SceneObject>(result.value->objects()[0]);
-        weak_object = object;
-    }
-
-    return object;
-}
-
 int main(int argc, char** argv) {
     DEBUG_ASSERT([] { std::cout << "Debug asserts enabled" << std::endl; return true; }());
 
@@ -418,11 +408,14 @@ int main(int argc, char** argv) {
 
     ImGuiRenderer imgui(window);
 
-    scene = create_default_scene();
+    // scene = create_default_scene();
 
     auto flatland_program = Program::from_files("flatland.frag", "screen.vert");
     RendererState renderer;
 
+    glm::dvec2 mouse_pos;
+    bool is_drawing;
+    
     for(;;) {
         glfwPollEvents();
         if(glfwWindowShouldClose(window) || glfwGetKey(window, GLFW_KEY_ESCAPE)) {
@@ -447,6 +440,10 @@ int main(int argc, char** argv) {
         //     process_inputs(window, scene->camera());
         // }
 
+        if(const auto& io = ImGui::GetIO(); !io.WantCaptureMouse && !io.WantCaptureKeyboard) { // TODO remove keyboard ?
+            process_inputs_flatland(window, mouse_pos, is_drawing);
+        }
+
         // Draw everything
         {
             PROFILE_GPU("Frame");
@@ -458,6 +455,8 @@ int main(int argc, char** argv) {
                 glDisable(GL_CULL_FACE); // Dont apply backface culling to tonemapping triangle
                 renderer.flatland_framebuffer.bind(false, true);
                 flatland_program->bind();
+                flatland_program->set_uniform<u32>("is_drawing", is_drawing); // set bool as u32
+                flatland_program->set_uniform<glm::vec2>("mouse_pos", glm::vec2(mouse_pos.x, 900 - mouse_pos.y));
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
@@ -476,5 +475,5 @@ int main(int argc, char** argv) {
         glfwSwapBuffers(window);
     }
 
-    scene = nullptr; // destroy scene and child OpenGL objects
+    // scene = nullptr; // destroy scene and child OpenGL objects
 }
