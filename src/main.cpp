@@ -453,10 +453,11 @@ int main(int argc, char** argv) {
                 PROFILE_GPU("Flatland");
 
                 glDisable(GL_CULL_FACE); // Dont apply backface culling to tonemapping triangle
-                renderer.flatland_framebuffer.bind(false, true);
+                renderer.flatland_framebuffer.bind(false, false);
                 flatland_program->bind();
                 flatland_program->set_uniform<u32>("is_drawing", is_drawing); // set bool as u32
                 flatland_program->set_uniform<glm::vec2>("mouse_pos", glm::vec2(mouse_pos.x, 900 - mouse_pos.y));
+                renderer.flatland_texture.bind(0);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 

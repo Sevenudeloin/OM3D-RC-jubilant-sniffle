@@ -10,7 +10,11 @@ uniform vec2 screen_res = vec2(1600, 900); // (width, height), for now hardcoded
 uniform bool is_drawing = false;
 uniform vec2 mouse_pos; // y axis is inverted to match opengl 2D coord space
 
+layout(binding = 0) uniform sampler2D prev_frame;
+
 void main() {
+    vec4 prev_color = texture(prev_frame, in_uv);
+
     if (is_drawing) {
         vec2 frag_pos = in_uv * screen_res;
         float frag_mouse_dist = length(frag_pos - mouse_pos);
@@ -21,5 +25,5 @@ void main() {
         }
     }
 
-    out_color = vec4(in_uv, 0.0, 1.0);
+    out_color = prev_color;
 }
