@@ -120,10 +120,10 @@ void process_inputs(GLFWwindow* window, Camera& camera) {
 }
 
 void process_inputs_flatland(GLFWwindow* window, glm::dvec2& mouse_pos, bool& is_drawing) {
+    prev_mouse_pos = mouse_pos;
+
     glfwGetCursorPos(window, &mouse_pos.x, &mouse_pos.y);
     is_drawing = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-
-    prev_mouse_pos = mouse_pos;
 }
 
 void gui(ImGuiRenderer& imgui) {
