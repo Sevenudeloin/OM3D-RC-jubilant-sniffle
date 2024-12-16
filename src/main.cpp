@@ -496,13 +496,16 @@ int main(int argc, char** argv) {
         {
             PROFILE_GPU("Frame");
 
+            if (flatland_clear_screen) {
+                renderer.flatland_framebuffer.bind(false, true);
+            }
+
             // Flatland drawing
             {
                 PROFILE_GPU("Flatland drawing");
 
                 flatland_draw_program->bind();
 
-                flatland_draw_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
                 flatland_draw_program->set_uniform<u32>("is_drawing", is_drawing); // set bool as u32
                 flatland_draw_program->set_uniform<glm::vec2>("prev_mouse_pos", glm::vec2(prev_mouse_pos.x, WINDOW_HEIGHT - prev_mouse_pos.y));
                 flatland_draw_program->set_uniform<glm::vec2>("mouse_pos", glm::vec2(mouse_pos.x, WINDOW_HEIGHT - mouse_pos.y));
@@ -518,8 +521,7 @@ int main(int argc, char** argv) {
                 int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
                 glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
 
-                glMemoryBarrier(GL_ALL_BARRIER_BITS);TEST_OPENGL_ERROR();
-                // glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
             }
 
             // Flatland RC
@@ -527,7 +529,7 @@ int main(int argc, char** argv) {
                 PROFILE_GPU("Flatland RC");
 
                 glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
-                renderer.flatland_framebuffer.bind(false, flatland_clear_screen);
+                renderer.flatland_framebuffer.bind(false, false);
                 flatland_program->bind();
                 flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
                 renderer.flatland_draw_texture.bind(0);

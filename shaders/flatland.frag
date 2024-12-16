@@ -59,7 +59,6 @@ vec4 raymarch() {
 }
 
 void main() {
-    out_color = texture(input_frame, in_uv);
-
-    // out_color = vec4(raymarch().rgb, 1.0);
+    // out_color = vec4(raymarch().rgba);
+    out_color = vec4(raymarch().rgb, 1.0);
 }
