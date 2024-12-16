@@ -7,33 +7,59 @@ layout(location = 0) out vec4 out_color;
 layout(location = 0) in vec2 in_uv;
 
 uniform vec2 screen_res;
-uniform bool is_drawing = false;
-uniform vec2 prev_mouse_pos; // y axis is inverted to match opengl 2D coord space
-uniform vec2 mouse_pos; // y axis is inverted to match opengl 2D coord space
-uniform vec3 line_color = vec3(1.0);
-uniform float line_width = 10.0;
 
-layout(binding = 0) uniform sampler2D prev_frame;
+uniform int ray_count = 4;
+uniform int max_steps = 128; // 512
 
-void main() {
-    vec4 prev_color = texture(prev_frame, in_uv);
+layout(binding = 0) uniform sampler2D input_frame;
 
-    // Drawing logic
+#define TAU 6.2831855
 
-    if (is_drawing) {
-        vec2 frag_pos = in_uv * screen_res;
+bool out_of_bounds( in vec2 uv ) {
+    return uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;
+}
 
-        vec2 line_vec = mouse_pos - prev_mouse_pos;
-        vec2 start_frag_vec = frag_pos - prev_mouse_pos;
-        float t = clamp(dot(line_vec, start_frag_vec) / dot(line_vec, line_vec), 0.0, 1.0);
-        vec2 closest_point = prev_mouse_pos + t * line_vec;
+float tmp_rand( in vec2 v ) {
+    return fract(sin(dot(v, vec2(12.9898, 78.233))) * 43758.5453);
+}
 
-        float frag_dist = length(frag_pos - closest_point);
+vec4 raymarch() {
+    vec4 light = texture(input_frame, in_uv);
+    if (light.a > 0.1) {
+        return light;
+    }
 
-        if (frag_dist < line_width) {
-            prev_color = vec4(line_color, 1.0);
+    float one_over_ray_count = 1.0 / float(ray_count);
+    float tau_over_ray_count = TAU / float(ray_count);
+
+    float noise = tmp_rand(in_uv);
+
+    vec4 radiance = vec4(0.0);
+
+    for (int i = 0; i < ray_count; i++) {
+        float angle = tau_over_ray_count * (float(i) + noise);
+        vec2 ray_dir_uv = vec2(cos(angle), sin(angle)) / screen_res; // -sin ?
+
+        for (int step_i = 0; step_i < max_steps; step_i++) {
+            vec2 sample_uv = in_uv + ray_dir_uv * float(step_i);
+
+            if (out_of_bounds(sample_uv)) {
+                break;
+            }
+
+            vec4 sample_light = texture(input_frame, sample_uv);
+            if (sample_light.a > 0.5) {
+                radiance += sample_light; // / 100.0;
+                break;
+            }
         }
     }
 
-    out_color = prev_color;
+    return radiance * one_over_ray_count;
+}
+
+void main() {
+    out_color = texture(input_frame, in_uv);
+
+    // out_color = vec4(raymarch().rgb, 1.0);
 }

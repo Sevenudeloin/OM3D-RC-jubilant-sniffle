@@ -395,13 +395,14 @@ struct RendererState {
             state.lit_hdr_texture = Texture(size, ImageFormat::RGBA16_FLOAT);
             state.tone_mapped_texture = Texture(size, ImageFormat::RGBA8_UNORM);
             // Flatland
-            state.flatland_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.flatland_light_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM);
             // G-buffer
             state.albedo_texture = Texture(size, ImageFormat::RGB8_sRGB);
             state.normal_texture = Texture(size, ImageFormat::RGB8_UNORM);
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
-            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_texture});
+            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_light_texture});
             state.tone_map_framebuffer = Framebuffer(nullptr, std::array{&state.tone_mapped_texture});
             state.g_buffer_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.albedo_texture, &state.normal_texture});
         }
@@ -415,7 +416,8 @@ struct RendererState {
     Texture lit_hdr_texture;
     Texture tone_mapped_texture;
     // Flatland
-    Texture flatland_texture;
+    Texture flatland_light_texture;
+    Texture flatland_draw_texture;
     // G-buffer
     Texture albedo_texture;
     Texture normal_texture;
@@ -440,7 +442,9 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 
-    GLFWwindow* window = glfwCreateWindow(1600, 900, "OM3D", nullptr, nullptr);
+    static const int WINDOW_WIDTH = 1600;
+    static const int WINDOW_HEIGHT = 900;
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "OM3D", nullptr, nullptr);
     glfw_check(window);
     DEFER(glfwDestroyWindow(window));
 
@@ -453,6 +457,7 @@ int main(int argc, char** argv) {
 
     // scene = create_default_scene();
 
+    auto flatland_draw_program = Program::from_file("flatland_draw.comp");
     auto flatland_program = Program::from_files("flatland.frag", "screen.vert");
     RendererState renderer;
 
@@ -491,22 +496,41 @@ int main(int argc, char** argv) {
         {
             PROFILE_GPU("Frame");
 
-            // Apply a tonemap in compute shader
+            // Flatland drawing
             {
-                PROFILE_GPU("Flatland");
+                PROFILE_GPU("Flatland drawing");
+
+                flatland_draw_program->bind();
+
+                flatland_draw_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
+                flatland_draw_program->set_uniform<u32>("is_drawing", is_drawing); // set bool as u32
+                flatland_draw_program->set_uniform<glm::vec2>("prev_mouse_pos", glm::vec2(prev_mouse_pos.x, WINDOW_HEIGHT - prev_mouse_pos.y));
+                flatland_draw_program->set_uniform<glm::vec2>("mouse_pos", glm::vec2(mouse_pos.x, WINDOW_HEIGHT - mouse_pos.y));
+                flatland_draw_program->set_uniform<glm::vec3>("line_color", glm::vec3(
+                    flatland_drawing_color[0], flatland_drawing_color[1], flatland_drawing_color[2]
+                ));
+                flatland_draw_program->set_uniform<float>("line_width", static_cast<float>(flatland_line_width));
+
+                renderer.flatland_light_texture.bind_as_image(0, OM3D::AccessType::ReadWrite);
+                renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadWrite);
+
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_ALL_BARRIER_BITS);TEST_OPENGL_ERROR();
+                // glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+            }
+
+            // Flatland RC
+            {
+                PROFILE_GPU("Flatland RC");
 
                 glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
                 renderer.flatland_framebuffer.bind(false, flatland_clear_screen);
                 flatland_program->bind();
-                flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(1600, 900));
-                flatland_program->set_uniform<u32>("is_drawing", is_drawing); // set bool as u32
-                flatland_program->set_uniform<glm::vec2>("prev_mouse_pos", glm::vec2(prev_mouse_pos.x, 900 - prev_mouse_pos.y));
-                flatland_program->set_uniform<glm::vec2>("mouse_pos", glm::vec2(mouse_pos.x, 900 - mouse_pos.y));
-                flatland_program->set_uniform<glm::vec3>("line_color", glm::vec3(
-                    flatland_drawing_color[0], flatland_drawing_color[1], flatland_drawing_color[2]
-                ));
-                flatland_program->set_uniform<float>("line_width", static_cast<float>(flatland_line_width));
-                renderer.flatland_texture.bind(0);
+                flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
+                renderer.flatland_draw_texture.bind(0);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
