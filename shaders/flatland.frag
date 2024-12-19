@@ -8,8 +8,8 @@ layout(location = 0) in vec2 in_uv;
 
 uniform vec2 screen_res;
 
-uniform int ray_count = 4;
-uniform int max_steps = 128; // 256
+uniform int ray_count = 4; // 8-16
+uniform int max_steps = 128; // 256-512
 
 layout(binding = 0) uniform sampler2D drawing_image;
 
@@ -48,7 +48,10 @@ vec4 raymarch() {
             }
 
             vec4 sample_light = texture(drawing_image, sample_uv);
-            radiance += sample_light / 50.0;
+            if (sample_light.a > 0.1) { // Stop marching when hitting light (a == 1.0) and add contribution
+                radiance += sample_light;
+                break;
+            }
         }
     }
 
