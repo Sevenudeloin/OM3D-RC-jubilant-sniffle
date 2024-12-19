@@ -497,7 +497,7 @@ int main(int argc, char** argv) {
             PROFILE_GPU("Frame");
 
             if (flatland_clear_screen) {
-                renderer.flatland_framebuffer.bind(false, true);
+                renderer.flatland_framebuffer.bind(false, true); // trick to clear screen
             }
 
             // Flatland drawing
@@ -514,8 +514,7 @@ int main(int argc, char** argv) {
                 ));
                 flatland_draw_program->set_uniform<float>("line_width", static_cast<float>(flatland_line_width));
 
-                renderer.flatland_light_texture.bind_as_image(0, OM3D::AccessType::ReadWrite);
-                renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadWrite);
+                renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::ReadWrite);
 
                 int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
                 int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;

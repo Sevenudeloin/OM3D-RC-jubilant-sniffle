@@ -2,8 +2,7 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(binding = 0, rgba8) uniform image2D input_image;
-layout(binding = 1, rgba8) uniform image2D output_image;
+layout(binding = 0, rgba8) uniform image2D drawing_image;
 
 uniform bool is_drawing = false;
 uniform vec2 prev_mouse_pos; // y axis is inverted to match opengl 2D coord space
@@ -14,12 +13,12 @@ uniform float line_width = 10.0;
 void main() {
     ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
 
-    ivec2 texture_size = imageSize(input_image);
+    ivec2 texture_size = imageSize(drawing_image);
     if (pixel_coords.x >= texture_size.x || pixel_coords.y >= texture_size.y) {
         return;
     }
 
-    vec4 output_color = imageLoad(input_image, pixel_coords);
+    vec4 output_color = imageLoad(drawing_image, pixel_coords);
 
     // Drawing logic
 
@@ -36,5 +35,5 @@ void main() {
         }
     }
 
-    imageStore(output_image, pixel_coords.xy, output_color);
+    imageStore(drawing_image, pixel_coords.xy, output_color);
 }

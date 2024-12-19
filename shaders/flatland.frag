@@ -9,9 +9,9 @@ layout(location = 0) in vec2 in_uv;
 uniform vec2 screen_res;
 
 uniform int ray_count = 4;
-uniform int max_steps = 128; // 512
+uniform int max_steps = 128; // 256
 
-layout(binding = 0) uniform sampler2D input_frame;
+layout(binding = 0) uniform sampler2D drawing_image;
 
 #define TAU 6.2831855
 
@@ -24,7 +24,7 @@ float tmp_rand( in vec2 v ) {
 }
 
 vec4 raymarch() {
-    vec4 light = texture(input_frame, in_uv);
+    vec4 light = texture(drawing_image, in_uv);
     if (light.a > 0.1) {
         return light;
     }
@@ -47,11 +47,8 @@ vec4 raymarch() {
                 break;
             }
 
-            vec4 sample_light = texture(input_frame, sample_uv);
-            if (sample_light.a > 0.5) {
-                radiance += sample_light; // / 100.0;
-                break;
-            }
+            vec4 sample_light = texture(drawing_image, sample_uv);
+            radiance += sample_light / 50.0;
         }
     }
 
