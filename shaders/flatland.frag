@@ -12,6 +12,7 @@ uniform int ray_count = 4; // 8-16
 uniform int max_steps = 128; // 256-512
 
 layout(binding = 0) uniform sampler2D drawing_image;
+layout(binding = 1) uniform sampler2D jfa_image;
 
 #define TAU 6.2831855
 
@@ -59,6 +60,7 @@ vec4 raymarch() {
 }
 
 void main() {
-    // out_color = vec4(raymarch().rgba);
-    out_color = vec4(raymarch().rgb, 1.0);
+    // out_color = vec4(raymarch().rgb, 1.0);
+
+    out_color = texture(drawing_image, in_uv);
 }

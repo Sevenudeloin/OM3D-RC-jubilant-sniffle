@@ -394,17 +394,20 @@ struct RendererState {
             state.depth_texture = Texture(size, ImageFormat::Depth32_FLOAT);
             state.lit_hdr_texture = Texture(size, ImageFormat::RGBA16_FLOAT);
             state.tone_mapped_texture = Texture(size, ImageFormat::RGBA8_UNORM);
-            // Flatland
-            state.flatland_light_texture = Texture(size, ImageFormat::RGBA8_UNORM);
-            state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM);
             // G-buffer
             state.albedo_texture = Texture(size, ImageFormat::RGB8_sRGB);
             state.normal_texture = Texture(size, ImageFormat::RGB8_UNORM);
+            // Flatland
+            state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.flatland_jfa_A_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.flatland_jfa_B_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.flatland_light_texture = Texture(size, ImageFormat::RGBA8_UNORM);
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
-            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_light_texture});
             state.tone_map_framebuffer = Framebuffer(nullptr, std::array{&state.tone_mapped_texture});
             state.g_buffer_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.albedo_texture, &state.normal_texture});
+            // Flatland
+            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_light_texture});
         }
 
         return state;
@@ -415,18 +418,20 @@ struct RendererState {
     Texture depth_texture;
     Texture lit_hdr_texture;
     Texture tone_mapped_texture;
-    // Flatland
-    Texture flatland_light_texture;
-    Texture flatland_draw_texture;
     // G-buffer
     Texture albedo_texture;
     Texture normal_texture;
+    // Flatland
+    Texture flatland_draw_texture;
+    Texture flatland_jfa_A_texture;
+    Texture flatland_jfa_B_texture;
+    Texture flatland_light_texture;
 
     Framebuffer z_prepass_framebuffer;
     Framebuffer main_framebuffer;
-    Framebuffer flatland_framebuffer;
     Framebuffer tone_map_framebuffer;
     Framebuffer g_buffer_framebuffer;
+    Framebuffer flatland_framebuffer;
 };
 
 int main(int argc, char** argv) {
@@ -458,6 +463,7 @@ int main(int argc, char** argv) {
     // scene = create_default_scene();
 
     auto flatland_draw_program = Program::from_file("flatland_draw.comp");
+    auto flatland_jfa_program = Program::from_file("flatland_jfa.comp");
     auto flatland_program = Program::from_files("flatland.frag", "screen.vert");
     RendererState renderer;
 
@@ -523,6 +529,36 @@ int main(int argc, char** argv) {
                 glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
             }
 
+            // Flatland JFA
+            {
+                PROFILE_GPU("Flatland JFA");
+
+                flatland_jfa_program->bind();
+
+                //for now only do odd number of ping pongs so that jfa B is the output (later do 1 more pass than necessary to guarantee)
+                int jfa_passes = std::ceil(std::log2(std::max(WINDOW_WIDTH, WINDOW_HEIGHT)));
+                jfa_passes = (jfa_passes % 2 == 0) ? jfa_passes + 1 : jfa_passes;
+
+                for (int i = 0; i < jfa_passes; i++) { // TODO TEST !!!
+                    if (i == 0) {
+                        renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_jfa_B_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
+                    } else if (i % 2 == 0) {
+                        renderer.flatland_jfa_A_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_jfa_B_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
+                    } else {
+                        renderer.flatland_jfa_B_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_jfa_A_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
+                    }
+
+                    int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                    int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                    glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+                }
+            }
+
             // Flatland RC
             {
                 PROFILE_GPU("Flatland RC");
@@ -531,7 +567,8 @@ int main(int argc, char** argv) {
                 renderer.flatland_framebuffer.bind(false, false);
                 flatland_program->bind();
                 flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
-                renderer.flatland_draw_texture.bind(0);
+                // renderer.flatland_draw_texture.bind(0);
+                renderer.flatland_jfa_B_texture.bind(0);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
