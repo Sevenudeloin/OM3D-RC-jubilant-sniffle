@@ -1,6 +1,7 @@
 
 #include "ImageFormat.h"
 #include "SceneObject.h"
+#include <cmath>
 #include <glad/gl.h>
 
 #define GLFW_INCLUDE_NONE
@@ -503,7 +504,7 @@ int main(int argc, char** argv) {
             PROFILE_GPU("Frame");
 
             if (flatland_clear_screen) {
-                renderer.flatland_framebuffer.bind(false, true); // trick to clear screen
+                renderer.flatland_framebuffer.bind(false, true); // trick to clear screen, doesnt work anymore
             }
 
             // Flatland drawing
@@ -535,11 +536,12 @@ int main(int argc, char** argv) {
 
                 flatland_jfa_program->bind();
 
-                //for now only do odd number of ping pongs so that jfa B is the output (later do 1 more pass than necessary to guarantee)
                 int jfa_passes = std::ceil(std::log2(std::max(WINDOW_WIDTH, WINDOW_HEIGHT)));
+                // only do odd number (>=3) of ping pongs so that jfa B is the output
                 jfa_passes = (jfa_passes % 2 == 0) ? jfa_passes + 1 : jfa_passes;
+                jfa_passes += 2; // tmp fix for non square screen ?
 
-                for (int i = 0; i < jfa_passes; i++) { // TODO TEST !!!
+                for (int i = 0; i < jfa_passes; i++) {
                     if (i == 0) {
                         renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
                         renderer.flatland_jfa_B_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
@@ -550,6 +552,9 @@ int main(int argc, char** argv) {
                         renderer.flatland_jfa_B_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
                         renderer.flatland_jfa_A_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
                     }
+
+                    flatland_jfa_program->set_uniform<u32>("is_seed", (i == 0)); // only for first pass
+                    flatland_jfa_program->set_uniform<u32>("offset", static_cast<u32>(std::pow(2, jfa_passes - i - 1)));
 
                     int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
                     int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
