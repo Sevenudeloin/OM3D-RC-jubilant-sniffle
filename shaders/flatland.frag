@@ -62,5 +62,8 @@ vec4 raymarch() {
 void main() {
     // out_color = vec4(raymarch().rgb, 1.0);
 
-    out_color = texture(drawing_image, in_uv);
+    vec2 nearest_seed = texture(jfa_image, in_uv).xy;
+    float dist = clamp(distance(in_uv, nearest_seed), 0.0, 1.0);
+
+    out_color = vec4(vec3(dist), 1.0);
 }

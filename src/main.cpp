@@ -572,8 +572,8 @@ int main(int argc, char** argv) {
                 renderer.flatland_framebuffer.bind(false, false);
                 flatland_program->bind();
                 flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
-                // renderer.flatland_draw_texture.bind(0);
-                renderer.flatland_jfa_B_texture.bind(0);
+                renderer.flatland_draw_texture.bind(0);
+                renderer.flatland_jfa_B_texture.bind(1);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
