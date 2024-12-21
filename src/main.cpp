@@ -402,6 +402,7 @@ struct RendererState {
             state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM);
             state.flatland_jfa_A_texture = Texture(size, ImageFormat::RGBA8_UNORM);
             state.flatland_jfa_B_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.flatland_jfa_dist_texture = Texture(size, ImageFormat::RGBA8_UNORM); // could be just float
             state.flatland_light_texture = Texture(size, ImageFormat::RGBA8_UNORM);
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
@@ -426,6 +427,7 @@ struct RendererState {
     Texture flatland_draw_texture;
     Texture flatland_jfa_A_texture;
     Texture flatland_jfa_B_texture;
+    Texture flatland_jfa_dist_texture;
     Texture flatland_light_texture;
 
     Framebuffer z_prepass_framebuffer;
@@ -465,6 +467,7 @@ int main(int argc, char** argv) {
 
     auto flatland_draw_program = Program::from_file("flatland_draw.comp");
     auto flatland_jfa_program = Program::from_file("flatland_jfa.comp");
+    auto flatland_jfa_dist_program = Program::from_file("flatland_jfa_dist.comp");
     auto flatland_program = Program::from_files("flatland.frag", "screen.vert");
     RendererState renderer;
 
@@ -564,6 +567,22 @@ int main(int argc, char** argv) {
                 }
             }
 
+            // Flatland JFA to dist
+            {
+                PROFILE_GPU("Flatland JFA to dist");
+
+                flatland_jfa_dist_program->bind();
+
+                renderer.flatland_jfa_B_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                renderer.flatland_jfa_dist_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
+
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+            }
+
             // Flatland RC
             {
                 PROFILE_GPU("Flatland RC");
@@ -573,7 +592,7 @@ int main(int argc, char** argv) {
                 flatland_program->bind();
                 flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
                 renderer.flatland_draw_texture.bind(0);
-                renderer.flatland_jfa_B_texture.bind(1);
+                renderer.flatland_jfa_dist_texture.bind(1);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 

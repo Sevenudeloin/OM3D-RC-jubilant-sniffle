@@ -8,13 +8,15 @@ layout(location = 0) in vec2 in_uv;
 
 uniform vec2 screen_res;
 
-uniform int ray_count = 4; // 8-16
-uniform int max_steps = 128; // 256-512
+uniform int ray_count = 8; // 8-16
+uniform int max_steps = 32; // 48
 
 layout(binding = 0) uniform sampler2D drawing_image;
-layout(binding = 1) uniform sampler2D jfa_image;
+layout(binding = 1) uniform sampler2D jfa_dist_image;
 
 #define TAU 6.2831855
+#define EPS3 0.001
+#define EPS5 0.00001
 
 bool out_of_bounds( in vec2 uv ) {
     return uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;
@@ -41,16 +43,21 @@ vec4 raymarch() {
         float angle = tau_over_ray_count * (float(i) + noise);
         vec2 ray_dir_uv = vec2(cos(angle), sin(angle)) / screen_res; // -sin ?
 
-        for (int step_i = 0; step_i < max_steps; step_i++) {
-            vec2 sample_uv = in_uv + ray_dir_uv * float(step_i);
+        vec2 sample_uv = in_uv;
+
+        for (int step_i = 1; step_i < max_steps; step_i++) {
+            float dist = texture(jfa_dist_image, sample_uv).r;
+            sample_uv += ray_dir_uv * dist;
 
             if (out_of_bounds(sample_uv)) {
+                radiance = vec4(0.0, 0.0, 1.0, 1.0);
                 break;
             }
 
-            vec4 sample_light = texture(drawing_image, sample_uv);
-            if (sample_light.a > 0.1) { // Stop marching when hitting light (a == 1.0) and add contribution
-                radiance += sample_light;
+            if (dist < EPS3) {
+                // vec4 sample_color = texture(drawing_image, sample_uv);
+                // radiance += sample_color;
+                radiance = vec4(1.0, 0.0, 0.0, 1.0);
                 break;
             }
         }
@@ -60,10 +67,5 @@ vec4 raymarch() {
 }
 
 void main() {
-    // out_color = vec4(raymarch().rgb, 1.0);
-
-    vec2 nearest_seed = texture(jfa_image, in_uv).xy;
-    float dist = clamp(distance(in_uv, nearest_seed), 0.0, 1.0);
-
-    out_color = vec4(vec3(dist), 1.0);
+    out_color = vec4(raymarch().rgb, 1.0);
 }
