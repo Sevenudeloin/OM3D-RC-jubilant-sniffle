@@ -8,8 +8,8 @@ layout(location = 0) in vec2 in_uv;
 
 uniform vec2 screen_res;
 
-uniform int ray_count = 8; // 8-16
-uniform int max_steps = 32; // 48
+uniform int ray_count = 16; // 8-16
+uniform int max_steps = 8; // 48
 
 layout(binding = 0) uniform sampler2D drawing_image;
 layout(binding = 1) uniform sampler2D jfa_dist_image;
@@ -32,16 +32,15 @@ vec4 raymarch() {
         return light;
     }
 
-    float one_over_ray_count = 1.0 / float(ray_count);
-    float tau_over_ray_count = TAU / float(ray_count);
+    float angle_step_size = TAU / float(ray_count);
 
     float noise = tmp_rand(in_uv);
 
     vec4 radiance = vec4(0.0);
 
     for (int i = 0; i < ray_count; i++) {
-        float angle = tau_over_ray_count * (float(i) + noise);
-        vec2 ray_dir_uv = vec2(cos(angle), sin(angle)) / screen_res; // -sin ?
+        float angle = angle_step_size * (float(i) + noise);
+        vec2 ray_dir_uv = vec2(cos(angle), sin(angle)); // -sin ?
 
         vec2 sample_uv = in_uv;
 
@@ -50,20 +49,17 @@ vec4 raymarch() {
             sample_uv += ray_dir_uv * dist;
 
             if (out_of_bounds(sample_uv)) {
-                radiance = vec4(0.0, 0.0, 1.0, 1.0);
                 break;
             }
 
             if (dist < EPS3) {
-                // vec4 sample_color = texture(drawing_image, sample_uv);
-                // radiance += sample_color;
-                radiance = vec4(1.0, 0.0, 0.0, 1.0);
+                radiance += texture(drawing_image, sample_uv);
                 break;
             }
         }
     }
 
-    return radiance * one_over_ray_count;
+    return radiance / float(ray_count);
 }
 
 void main() {
