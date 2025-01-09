@@ -1,0 +1,47 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0, rg16f) uniform image2D input_jfa_image;
+layout(binding = 1, rg16f) uniform image2D output_jfa_image;
+
+uniform uint offset;
+
+void main() {
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 texture_size = imageSize(input_jfa_image);
+    if (pixel_coords.x >= texture_size.x || pixel_coords.y >= texture_size.y) {
+        return;
+    }
+
+    vec2 uv = pixel_coords / vec2(texture_size);
+
+    vec4 closest_seed = vec4(-2.0); // arbitrary out of frame
+    float closest_dist = 999999.9; // big number
+
+    for (float y = -1.0; y <= 1.0; y += 1.0) {
+        for (float x = -1.0; x <= 1.0; x += 1.0) {
+            vec2 sample_uv = uv + vec2(x, y) * offset / vec2(texture_size);
+
+            if (sample_uv.x < 0.0 || sample_uv.x > 1.0 || sample_uv.y < 0.0 || sample_uv.y > 1.0) {
+                continue;
+            }
+
+            vec4 sample_val = imageLoad(input_jfa_image, ivec2(sample_uv * texture_size));
+            vec2 sample_seed = sample_val.xy;
+
+            if (sample_seed.x != 0.0 || sample_seed.y != 0.0) { // ?
+                vec2 diff = sample_seed - uv;
+                float dist = dot(diff, diff);
+
+                if (dist < closest_dist) {
+                    closest_dist = dist;
+                    closest_seed = sample_val;
+                }
+            }
+        }
+    }
+
+    imageStore(output_jfa_image, pixel_coords.xy, closest_seed);
+}

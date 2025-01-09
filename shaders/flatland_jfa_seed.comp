@@ -1,0 +1,22 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0, rgba8) uniform image2D draw_image;
+layout(binding = 1, rg16f) uniform image2D jfa_seed_image;
+
+void main() {
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 texture_size = imageSize(draw_image);
+    if (pixel_coords.x >= texture_size.x || pixel_coords.y >= texture_size.y) {
+        return;
+    }
+
+    vec2 uv = pixel_coords / vec2(texture_size);
+
+    vec4 input_color = imageLoad(draw_image, pixel_coords);
+    vec4 output_color = vec4(uv * input_color.a, 0.0, 1.0);
+
+    imageStore(jfa_seed_image, pixel_coords.xy, output_color);
+}

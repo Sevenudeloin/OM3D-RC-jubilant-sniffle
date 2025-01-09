@@ -1,6 +1,7 @@
 
 #include "ImageFormat.h"
 #include "SceneObject.h"
+#include <cmath>
 #include <glad/gl.h>
 
 #define GLFW_INCLUDE_NONE
@@ -27,9 +28,14 @@ using namespace OM3D;
 
 static float delta_time = 0.0f;
 static std::unique_ptr<Scene> scene;
-static float exposure = 1.0;
+// static float exposure = 1.0;
 static std::vector<std::string> scene_files;
-static u32 debug_mode = 0;
+// static u32 debug_mode = 0;
+
+static glm::dvec2 prev_mouse_pos;
+static bool flatland_clear_screen = false;
+static float flatland_drawing_color[4] = { 1.0, 1.0, 1.0, 1.0};
+static int flatland_line_width = 10; // in pixels
 
 namespace OM3D {
 extern bool audit_bindings_before_draw;
@@ -114,12 +120,21 @@ void process_inputs(GLFWwindow* window, Camera& camera) {
     mouse_pos = new_mouse_pos;
 }
 
+void process_inputs_flatland(GLFWwindow* window, glm::dvec2& mouse_pos, bool& is_drawing) {
+    prev_mouse_pos = mouse_pos;
+
+    glfwGetCursorPos(window, &mouse_pos.x, &mouse_pos.y);
+    is_drawing = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+}
+
 void gui(ImGuiRenderer& imgui) {
     const ImVec4 error_text_color = ImVec4(1.0f, 0.3f, 0.3f, 1.0f);
     const ImVec4 warning_text_color = ImVec4(1.0f, 0.8f, 0.4f, 1.0f);
 
     static bool open_gpu_profiler = false;
-    static bool display_camera_pos = false;
+    // static bool display_camera_pos = false;
+    static bool show_color_picker = false;
+    static bool show_width_slider = false;
 
     PROFILE_GPU("GUI");
 
@@ -130,6 +145,8 @@ void gui(ImGuiRenderer& imgui) {
 
     bool open_scene_popup = false;
 
+    flatland_clear_screen = false;
+
     if(ImGui::BeginMainMenuBar()) {
         if(ImGui::BeginMenu("File")) {
             if(ImGui::MenuItem("Open Scene")) {
@@ -138,24 +155,39 @@ void gui(ImGuiRenderer& imgui) {
             ImGui::EndMenu();
         }
 
-        if(ImGui::BeginMenu("Exposure")) {
-            ImGui::DragFloat("Exposure", &exposure, 0.25f, 0.01f, 100.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
-            if(exposure != 1.0f && ImGui::Button("Reset")) {
-                exposure = 1.0f;
+        if (ImGui::BeginMenu("Clear screen")) {
+            flatland_clear_screen = true;
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Drawing options")) {
+            if (ImGui::MenuItem("Line color")) {
+                show_color_picker = !show_color_picker;
+            }
+            if (ImGui::MenuItem("Line width")) {
+                show_width_slider = !show_width_slider;
             }
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("Debug")) {
-            if (ImGui::MenuItem("Albedo")) {
-                debug_mode = 0;
-            } else if (ImGui::MenuItem("Normals")) {
-                debug_mode = 1;
-            } else if (ImGui::MenuItem("Depth")) {
-                debug_mode = 2;
-            }
-            ImGui::EndMenu();
-        }
+        // if(ImGui::BeginMenu("Exposure")) {
+        //     ImGui::DragFloat("Exposure", &exposure, 0.25f, 0.01f, 100.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+        //     if(exposure != 1.0f && ImGui::Button("Reset")) {
+        //         exposure = 1.0f;
+        //     }
+        //     ImGui::EndMenu();
+        // }
+
+        // if (ImGui::BeginMenu("Debug")) {
+        //     if (ImGui::MenuItem("Albedo")) {
+        //         debug_mode = 0;
+        //     } else if (ImGui::MenuItem("Normals")) {
+        //         debug_mode = 1;
+        //     } else if (ImGui::MenuItem("Depth")) {
+        //         debug_mode = 2;
+        //     }
+        //     ImGui::EndMenu();
+        // }
 
         if(scene && ImGui::BeginMenu("Scene Info")) {
             ImGui::Text("%u objects", u32(scene->objects().size()));
@@ -167,9 +199,9 @@ void gui(ImGuiRenderer& imgui) {
             open_gpu_profiler = true;
         }
 
-        if(ImGui::MenuItem("Camera pos")) {
-            display_camera_pos = !display_camera_pos;
-        }
+        // if(ImGui::MenuItem("Camera pos")) {
+        //     display_camera_pos = !display_camera_pos;
+        // }
 
         ImGui::Separator();
         ImGui::TextUnformatted(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
@@ -289,19 +321,36 @@ void gui(ImGuiRenderer& imgui) {
         ImGui::End();
     }
 
-    if (display_camera_pos) {
-        auto cam_view_mat = scene->camera().view_matrix();
-
-        glm::mat3 rotation = glm::mat3(cam_view_mat);
-        glm::vec3 translation = glm::vec3(cam_view_mat[3]);
-        glm::vec3 cam_pos = -glm::transpose(rotation) * translation;
-
-        ImGui::Begin("Camera Position", &display_camera_pos); // Create a window with a close button
-        ImGui::Text("X: %.3f", cam_pos.x);
-        ImGui::Text("Y: %.3f", cam_pos.y);
-        ImGui::Text("Z: %.3f", cam_pos.z);
+    if (show_color_picker) {
+        ImGui::SetNextWindowSize(ImVec2(300, 400), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Line color");
+        ImGui::ColorPicker4("Color", flatland_drawing_color);
         ImGui::End();
     }
+
+    if (show_width_slider) {
+        ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_FirstUseEver);
+        ImGui::Begin("Line width");
+        ImGui::DragInt("Width", &flatland_line_width, 0.3f, 1, 50, "%d");
+        if(flatland_line_width != 10 && ImGui::Button("Reset")) {
+            flatland_line_width = 10;
+        }
+        ImGui::End();
+    }
+
+    // if (display_camera_pos) {
+    //     auto cam_view_mat = scene->camera().view_matrix();
+
+    //     glm::mat3 rotation = glm::mat3(cam_view_mat);
+    //     glm::vec3 translation = glm::vec3(cam_view_mat[3]);
+    //     glm::vec3 cam_pos = -glm::transpose(rotation) * translation;
+
+    //     ImGui::Begin("Camera Position", &display_camera_pos); // Create a window with a close button
+    //     ImGui::Text("X: %.3f", cam_pos.x);
+    //     ImGui::Text("Y: %.3f", cam_pos.y);
+    //     ImGui::Text("Z: %.3f", cam_pos.z);
+    //     ImGui::End();
+    // }
 }
 
 
@@ -349,10 +398,18 @@ struct RendererState {
             // G-buffer
             state.albedo_texture = Texture(size, ImageFormat::RGB8_sRGB);
             state.normal_texture = Texture(size, ImageFormat::RGB8_UNORM);
+            // Flatland
+            state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.flatland_jfa_A_texture = Texture(size, ImageFormat::RG16_FLOAT);
+            state.flatland_jfa_B_texture = Texture(size, ImageFormat::RG16_FLOAT);
+            state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT);
+            state.flatland_light_texture = Texture(size, ImageFormat::RGBA8_UNORM);
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
             state.tone_map_framebuffer = Framebuffer(nullptr, std::array{&state.tone_mapped_texture});
             state.g_buffer_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.albedo_texture, &state.normal_texture});
+            // Flatland
+            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_light_texture});
         }
 
         return state;
@@ -366,27 +423,19 @@ struct RendererState {
     // G-buffer
     Texture albedo_texture;
     Texture normal_texture;
+    // Flatland
+    Texture flatland_draw_texture;
+    Texture flatland_jfa_A_texture;
+    Texture flatland_jfa_B_texture;
+    Texture flatland_jfa_dist_texture;
+    Texture flatland_light_texture;
 
     Framebuffer z_prepass_framebuffer;
     Framebuffer main_framebuffer;
     Framebuffer tone_map_framebuffer;
     Framebuffer g_buffer_framebuffer;
+    Framebuffer flatland_framebuffer;
 };
-
-std::shared_ptr<SceneObject> get_sphere() {
-    auto scene = std::make_unique<Scene>();
-    auto result = Scene::from_gltf(std::string(data_path) + "sphere.glb");
-    ALWAYS_ASSERT(result.is_ok, "Unable to load sphere scene");
-
-    static std::weak_ptr<SceneObject> weak_object;
-    auto object = weak_object.lock();
-    if(!object) {
-        object = std::make_shared<SceneObject>(result.value->objects()[0]);
-        weak_object = object;
-    }
-
-    return object;
-}
 
 int main(int argc, char** argv) {
     DEBUG_ASSERT([] { std::cout << "Debug asserts enabled" << std::endl; return true; }());
@@ -401,7 +450,9 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 
-    GLFWwindow* window = glfwCreateWindow(1600, 900, "OM3D", nullptr, nullptr);
+    static const int WINDOW_WIDTH = 800; // 1600
+    static const int WINDOW_HEIGHT = 600; // 900
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "OM3D", nullptr, nullptr);
     glfw_check(window);
     DEFER(glfwDestroyWindow(window));
 
@@ -412,15 +463,18 @@ int main(int argc, char** argv) {
 
     ImGuiRenderer imgui(window);
 
-    scene = create_default_scene();
-    std::shared_ptr<SceneObject> light_sphere = get_sphere();
+    // scene = create_default_scene();
 
-    // auto tonemap_program = Program::from_files("tonemap.frag", "screen.vert");
-    // auto g_buffer_debug_program = Program::from_files("g_buffer_debug.frag", "screen.vert");
-    auto sun_ambient_program = Program::from_files("sun_ambient.frag", "screen.vert");
-    auto point_lights_program = Program::from_files("point_lights.frag", "screen.vert");
+    auto flatland_draw_program = Program::from_file("flatland_draw.comp");
+    auto flatland_jfa_seed_program = Program::from_file("flatland_jfa_seed.comp");
+    auto flatland_jfa_program = Program::from_file("flatland_jfa.comp");
+    auto flatland_jfa_dist_program = Program::from_file("flatland_jfa_dist.comp");
+    auto flatland_program = Program::from_files("flatland.frag", "screen.vert");
     RendererState renderer;
 
+    glm::dvec2 mouse_pos;
+    bool is_drawing;
+    
     for(;;) {
         glfwPollEvents();
         if(glfwWindowShouldClose(window) || glfwGetKey(window, GLFW_KEY_ESCAPE)) {
@@ -441,151 +495,126 @@ int main(int argc, char** argv) {
 
         update_delta_time();
 
-        if(const auto& io = ImGui::GetIO(); !io.WantCaptureMouse && !io.WantCaptureKeyboard) {
-            process_inputs(window, scene->camera());
+        // if(const auto& io = ImGui::GetIO(); !io.WantCaptureMouse && !io.WantCaptureKeyboard) {
+        //     process_inputs(window, scene->camera());
+        // }
+
+        if(const auto& io = ImGui::GetIO(); !io.WantCaptureMouse && !io.WantCaptureKeyboard) { // TODO remove keyboard ?
+            process_inputs_flatland(window, mouse_pos, is_drawing);
         }
 
         // Draw everything
         {
             PROFILE_GPU("Frame");
 
-            // Store info in G-buffer
-            {
-                PROFILE_GPU("G-buffer");
-
-                // glClearColor(0.5f, 0.7f, 0.8f, 0.0f);
-                glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-                renderer.g_buffer_framebuffer.bind(true, true); // Clear depth and color
-
-                for (size_t i = 0; i < scene->point_lights().size(); i++) {
-                    std::shared_ptr<SceneObject> cur_light_sphere = std::make_shared<SceneObject>(*light_sphere);
-                    // http://www.c-jump.com/bcc/common/Talk3/Math/GLM/W01_0130_glmscale.htm
-                    // std::cout << glm::to_string(cur_light_sphere->transform()) << " -> ";
-                    glm::mat4 translation_matrix = glm::translate(
-                        cur_light_sphere->transform(),
-                        scene->point_lights()[i].position()
-                    );
-                    cur_light_sphere->set_transform(glm::scale(
-                        translation_matrix,
-                        glm::vec3(scene->point_lights()[i].radius() * 0.1f)
-                    ));
-                    // std::cout << scene->point_lights()[i].radius() << "\n";
-
-                    cur_light_sphere->material()->set_blend_mode(BlendMode::InnerFace);
-                    cur_light_sphere->material()->set_depth_test_mode(DepthTestMode::Readonly);
-
-                    scene->add_object(*cur_light_sphere);
-                }
-
-                scene->render();
+            if (flatland_clear_screen) {
+                renderer.flatland_framebuffer.bind(false, true); // trick to clear screen, doesnt work anymore
             }
 
-            // Sun/ambient contribution
+            // Flatland drawing
             {
-                PROFILE_GPU("Sun/ambient contribution");
+                PROFILE_GPU("Flatland drawing");
 
-                glDisable(GL_CULL_FACE);
-                renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
+                flatland_draw_program->bind();
 
-                TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
-                {
-                    auto mapping = framedata_buffer.map(AccessType::WriteOnly);
-                    mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
-                    mapping[0].sun_color = scene->sun_color();
-                    mapping[0].sun_dir = glm::normalize(scene->sun_direction());
+                flatland_draw_program->set_uniform<u32>("is_drawing", is_drawing); // set bool as u32
+                flatland_draw_program->set_uniform<glm::vec2>("prev_mouse_pos", glm::vec2(prev_mouse_pos.x, WINDOW_HEIGHT - prev_mouse_pos.y));
+                flatland_draw_program->set_uniform<glm::vec2>("mouse_pos", glm::vec2(mouse_pos.x, WINDOW_HEIGHT - mouse_pos.y));
+                flatland_draw_program->set_uniform<glm::vec3>("line_color", glm::vec3(
+                    flatland_drawing_color[0], flatland_drawing_color[1], flatland_drawing_color[2]
+                ));
+                flatland_draw_program->set_uniform<float>("line_width", static_cast<float>(flatland_line_width));
+
+                renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::ReadWrite);
+
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+            }
+
+            // Flatland JFA seed
+            {
+                PROFILE_GPU("Flatland JFA seed");
+
+                flatland_jfa_seed_program->bind();
+
+                renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                renderer.flatland_jfa_B_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
+
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+            }
+
+            // Flatland JFA
+            {
+                PROFILE_GPU("Flatland JFA");
+
+                flatland_jfa_program->bind();
+
+                int jfa_passes = std::ceil(std::log2(std::max(WINDOW_WIDTH, WINDOW_HEIGHT)));
+                // only do odd number (>=3) of ping pongs so that jfa B is the output
+                jfa_passes = (jfa_passes % 2 == 0) ? jfa_passes + 1 : jfa_passes;
+                jfa_passes += 2; // tmp fix for non square screen ?
+
+                for (int i = 1; i < jfa_passes; i++) {
+                    if (i % 2 == 0) {
+                        renderer.flatland_jfa_A_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_jfa_B_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
+                    } else {
+                        renderer.flatland_jfa_B_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_jfa_A_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
+                    }
+
+                    flatland_jfa_program->set_uniform<u32>("offset", static_cast<u32>(std::pow(2, jfa_passes - i - 1)));
+
+                    int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                    int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                    glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
                 }
-                framedata_buffer.bind(BufferUsage::Uniform, 0);
+            }
 
-                sun_ambient_program->bind();
-                renderer.albedo_texture.bind(1);
-                renderer.normal_texture.bind(2);
-                renderer.depth_texture.bind(3);
+            // Flatland JFA to dist
+            {
+                PROFILE_GPU("Flatland JFA to dist");
+
+                flatland_jfa_dist_program->bind();
+
+                renderer.flatland_jfa_B_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                renderer.flatland_jfa_dist_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
+
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+            }
+
+            // Flatland RC
+            {
+                PROFILE_GPU("Flatland RC");
+
+                glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
+                renderer.flatland_framebuffer.bind(false, false);
+                flatland_program->bind();
+                flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
+                renderer.flatland_draw_texture.bind(0);
+                renderer.flatland_jfa_dist_texture.bind(1);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
-
-            // Point lights contribution
-            {
-                PROFILE_GPU("Point lights contribution");
-
-                glDisable(GL_CULL_FACE);
-                glClearColor(0.0, 0.0, 0.0, 0.0);
-
-                renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
-
-                TypedBuffer<shader::FrameData> framedata_buffer(nullptr, 1);
-                {
-                    auto mapping = framedata_buffer.map(AccessType::WriteOnly);
-                    mapping[0].camera.inv_view_proj = glm::inverse(scene->camera().view_proj_matrix());
-                    mapping[0].point_light_count = static_cast<u32>(scene->point_lights().size()); // u32 cause uint in glsl struct
-                }
-                framedata_buffer.bind(BufferUsage::Uniform, 0);
-
-                TypedBuffer<shader::PointLight> point_lights_buffer(nullptr, 32);
-                {
-                    auto mapping = point_lights_buffer.map(AccessType::WriteOnly);
-                    shader::PointLight* actual_buffer = mapping.data();
-                    for (size_t i = 0; i < scene->point_lights().size(); i++) {
-                        actual_buffer[i].position = scene->point_lights()[i].position();
-                        actual_buffer[i].radius = scene->point_lights()[i].radius();
-                        actual_buffer[i].color = scene->point_lights()[i].color();
-                    }
-                }
-                point_lights_buffer.bind(BufferUsage::Uniform, 1);
-
-                point_lights_program->bind();
-                renderer.albedo_texture.bind(2);
-                renderer.normal_texture.bind(3);
-                renderer.depth_texture.bind(4);
-
-                // Additive blending
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_ONE, GL_ONE);
-                for (u32 i = 0; i < scene->point_lights().size(); i++) {
-                    point_lights_program->set_uniform<u32>("point_light_i", i);
-                    glDrawArrays(GL_TRIANGLES, 0, 3);
-                }
-            }
-
-            // // Debug g-buffer
-            // {
-            //     PROFILE_GPU("Debug g-buffer");
-
-            //     glDisable(GL_CULL_FACE);
-            //     renderer.tone_map_framebuffer.bind(false, true); // use old tone map fbo but later do other if needed
-            //     g_buffer_debug_program->bind();
-            //     g_buffer_debug_program->set_uniform<u32>("debug_mode", debug_mode);
-            //     renderer.albedo_texture.bind(1);
-            //     renderer.normal_texture.bind(2);
-            //     renderer.depth_texture.bind(3);
-            //     glDrawArrays(GL_TRIANGLES, 0, 3);
-            // }
-
-            // // Render the scene
-            // {
-            //     PROFILE_GPU("Main pass");
-
-            //     renderer.main_framebuffer.bind(true, true);
-            //     scene->render();
-            // }
-
-            // // Apply a tonemap in compute shader
-            // {
-            //     PROFILE_GPU("Tonemap");
-
-            //     glDisable(GL_CULL_FACE); // Dont apply backface culling to tonemapping triangle
-            //     renderer.tone_map_framebuffer.bind(false, true);
-            //     tonemap_program->bind();
-            //     tonemap_program->set_uniform(HASH("exposure"), exposure);
-            //     renderer.lit_hdr_texture.bind(0);
-            //     glDrawArrays(GL_TRIANGLES, 0, 3);
-            // }
 
             // Blit tonemap result to screen
             {
                 PROFILE_GPU("Blit");
 
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                renderer.tone_map_framebuffer.blit();
+                renderer.flatland_framebuffer.blit();
             }
 
             // Draw GUI on top
@@ -595,5 +624,5 @@ int main(int argc, char** argv) {
         glfwSwapBuffers(window);
     }
 
-    scene = nullptr; // destroy scene and child OpenGL objects
+    // scene = nullptr; // destroy scene and child OpenGL objects
 }

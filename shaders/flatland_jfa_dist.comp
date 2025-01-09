@@ -1,0 +1,22 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0, rg16f) uniform image2D jfa_image;
+layout(binding = 1, r16f) uniform image2D jfa_dist_image;
+
+void main() {
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 texture_size = imageSize(jfa_image);
+    if (pixel_coords.x >= texture_size.x || pixel_coords.y >= texture_size.y) {
+        return;
+    }
+
+    vec2 uv = pixel_coords / vec2(texture_size);
+
+    vec2 nearest_seed = imageLoad(jfa_image, pixel_coords).xy;
+    float dist = clamp(distance(uv, nearest_seed), 0.0, 1.0);
+
+    imageStore(jfa_dist_image, pixel_coords.xy, vec4(vec3(dist), 1.0));
+}
