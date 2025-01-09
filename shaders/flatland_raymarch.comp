@@ -1,0 +1,72 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0, rgba8) uniform image2D draw_image;
+layout(binding = 1, r16f) uniform image2D jfa_dist_image;
+layout(binding = 2, rgba8) uniform image2D scene_image;
+
+uniform int ray_count = 16; // 8-16
+uniform int max_steps = 32; // 48
+
+#define TAU 6.2831855
+#define EPS3 0.001
+#define EPS5 0.00001
+
+bool out_of_bounds( in vec2 uv ) {
+    return uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;
+}
+
+float tmp_rand( in vec2 v ) {
+    return fract(sin(dot(v, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+void main() { // raymarch
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 texture_size = imageSize(jfa_dist_image);
+    if (pixel_coords.x >= texture_size.x || pixel_coords.y >= texture_size.y) {
+        return;
+    }
+
+    vec2 uv = pixel_coords / vec2(texture_size);
+
+    //
+
+    vec4 light = imageLoad(draw_image, pixel_coords);
+    if (light.a > 0.1) {
+        imageStore(scene_image, pixel_coords, light);
+        return;
+    }
+
+    float angle_step_size = TAU / float(ray_count);
+
+    float noise = tmp_rand(uv);
+
+    vec4 radiance = vec4(0.0);
+
+    for (int i = 0; i < ray_count; i++) {
+        float angle = angle_step_size * (float(i) + noise);
+        vec2 ray_dir_uv = vec2(cos(angle), sin(angle)); // -sin ?
+
+        vec2 sample_uv = uv;
+
+        for (int step_i = 1; step_i < max_steps; step_i++) {
+            float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * texture_size)).r;
+            sample_uv += ray_dir_uv * dist;
+
+            if (out_of_bounds(sample_uv)) {
+                break;
+            }
+
+            if (dist < 0.001) {
+                radiance += imageLoad(draw_image, ivec2(sample_uv * texture_size));
+                break;
+            }
+        }
+    }
+
+    vec4 res = radiance / float(ray_count);
+
+    imageStore(scene_image, pixel_coords, vec4(res.rgb, 1.0));
+}

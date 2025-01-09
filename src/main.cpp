@@ -399,17 +399,19 @@ struct RendererState {
             state.albedo_texture = Texture(size, ImageFormat::RGB8_sRGB);
             state.normal_texture = Texture(size, ImageFormat::RGB8_UNORM);
             // Flatland
-            state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM);
-            state.flatland_jfa_A_texture = Texture(size, ImageFormat::RG16_FLOAT);
-            state.flatland_jfa_B_texture = Texture(size, ImageFormat::RG16_FLOAT);
-            state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT);
-            state.flatland_light_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For drawn pixels 
+            state.flatland_jfa_A_texture = Texture(size, ImageFormat::RG16_FLOAT); // For JFA pipeline
+            state.flatland_jfa_B_texture = Texture(size, ImageFormat::RG16_FLOAT); // For JFA pipeline
+            state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT); // Stores scene lights SDF
+            state.flatland_scene_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
+            state.flatland_prev_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
+            state.flatland_final_texture = Texture(size, ImageFormat::RGBA8_UNORM); // Final output
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
             state.tone_map_framebuffer = Framebuffer(nullptr, std::array{&state.tone_mapped_texture});
             state.g_buffer_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.albedo_texture, &state.normal_texture});
             // Flatland
-            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_light_texture});
+            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_final_texture});
         }
 
         return state;
@@ -428,7 +430,9 @@ struct RendererState {
     Texture flatland_jfa_A_texture;
     Texture flatland_jfa_B_texture;
     Texture flatland_jfa_dist_texture;
-    Texture flatland_light_texture;
+    Texture flatland_scene_texture;
+    Texture flatland_prev_texture;
+    Texture flatland_final_texture;
 
     Framebuffer z_prepass_framebuffer;
     Framebuffer main_framebuffer;
@@ -469,7 +473,8 @@ int main(int argc, char** argv) {
     auto flatland_jfa_seed_program = Program::from_file("flatland_jfa_seed.comp");
     auto flatland_jfa_program = Program::from_file("flatland_jfa.comp");
     auto flatland_jfa_dist_program = Program::from_file("flatland_jfa_dist.comp");
-    auto flatland_program = Program::from_files("flatland.frag", "screen.vert");
+    auto flatland_raymarch_program = Program::from_file("flatland_raymarch.comp");
+    auto flatland_render_program = Program::from_files("flatland_render.frag", "screen.vert");
     RendererState renderer;
 
     glm::dvec2 mouse_pos;
@@ -601,15 +606,36 @@ int main(int argc, char** argv) {
                 PROFILE_GPU("Flatland RC");
 
                 glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
+
+                flatland_raymarch_program->bind();
+
+                renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                renderer.flatland_jfa_dist_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
+                renderer.flatland_scene_texture.bind_as_image(2, OM3D::AccessType::WriteOnly);
+
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+            }
+
+            // Render light image to fullscreen triangle
+            {
+                PROFILE_GPU("Flatland render");
+
+                glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
+
                 renderer.flatland_framebuffer.bind(false, false);
-                flatland_program->bind();
-                flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
-                renderer.flatland_draw_texture.bind(0);
-                renderer.flatland_jfa_dist_texture.bind(1);
+
+                flatland_render_program->bind();
+
+                renderer.flatland_scene_texture.bind(0);
+
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
-            // Blit tonemap result to screen
+            // Blit result to screen
             {
                 PROFILE_GPU("Blit");
 
