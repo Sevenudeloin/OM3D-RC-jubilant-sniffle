@@ -9,9 +9,9 @@ layout(location = 0) in vec2 in_uv;
 uniform vec2 screen_res;
 
 uniform int ray_count = 16; // 8-16
-uniform int max_steps = 8; // 48
+uniform int max_steps = 32; // 48
 
-layout(binding = 0) uniform sampler2D drawing_image;
+layout(binding = 0) uniform sampler2D draw_image;
 layout(binding = 1) uniform sampler2D jfa_dist_image;
 
 #define TAU 6.2831855
@@ -27,7 +27,7 @@ float tmp_rand( in vec2 v ) {
 }
 
 vec4 raymarch() {
-    vec4 light = texture(drawing_image, in_uv);
+    vec4 light = texture(draw_image, in_uv);
     if (light.a > 0.1) {
         return light;
     }
@@ -52,8 +52,8 @@ vec4 raymarch() {
                 break;
             }
 
-            if (dist < EPS3) {
-                radiance += texture(drawing_image, sample_uv);
+            if (dist < 0.001) {
+                radiance += texture(draw_image, sample_uv);
                 break;
             }
         }

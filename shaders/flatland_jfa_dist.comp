@@ -2,8 +2,8 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(binding = 0, rgba8) uniform image2D jfa_image;
-layout(binding = 1, rgba8) uniform image2D jfa_dist_image;
+layout(binding = 0, rg16f) uniform image2D jfa_image;
+layout(binding = 1, r16f) uniform image2D jfa_dist_image;
 
 void main() {
     ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);

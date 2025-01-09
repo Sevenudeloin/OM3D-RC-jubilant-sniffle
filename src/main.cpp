@@ -400,9 +400,9 @@ struct RendererState {
             state.normal_texture = Texture(size, ImageFormat::RGB8_UNORM);
             // Flatland
             state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM);
-            state.flatland_jfa_A_texture = Texture(size, ImageFormat::RGBA8_UNORM);
-            state.flatland_jfa_B_texture = Texture(size, ImageFormat::RGBA8_UNORM);
-            state.flatland_jfa_dist_texture = Texture(size, ImageFormat::RGBA8_UNORM); // could be just float
+            state.flatland_jfa_A_texture = Texture(size, ImageFormat::RG16_FLOAT);
+            state.flatland_jfa_B_texture = Texture(size, ImageFormat::RG16_FLOAT);
+            state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT);
             state.flatland_light_texture = Texture(size, ImageFormat::RGBA8_UNORM);
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
@@ -450,8 +450,8 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 
-    static const int WINDOW_WIDTH = 1600;
-    static const int WINDOW_HEIGHT = 900;
+    static const int WINDOW_WIDTH = 800; // 1600
+    static const int WINDOW_HEIGHT = 600; // 900
     GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "OM3D", nullptr, nullptr);
     glfw_check(window);
     DEFER(glfwDestroyWindow(window));
@@ -466,6 +466,7 @@ int main(int argc, char** argv) {
     // scene = create_default_scene();
 
     auto flatland_draw_program = Program::from_file("flatland_draw.comp");
+    auto flatland_jfa_seed_program = Program::from_file("flatland_jfa_seed.comp");
     auto flatland_jfa_program = Program::from_file("flatland_jfa.comp");
     auto flatland_jfa_dist_program = Program::from_file("flatland_jfa_dist.comp");
     auto flatland_program = Program::from_files("flatland.frag", "screen.vert");
@@ -533,6 +534,22 @@ int main(int argc, char** argv) {
                 glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
             }
 
+            // Flatland JFA seed
+            {
+                PROFILE_GPU("Flatland JFA seed");
+
+                flatland_jfa_seed_program->bind();
+
+                renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                renderer.flatland_jfa_B_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
+
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+            }
+
             // Flatland JFA
             {
                 PROFILE_GPU("Flatland JFA");
@@ -544,11 +561,8 @@ int main(int argc, char** argv) {
                 jfa_passes = (jfa_passes % 2 == 0) ? jfa_passes + 1 : jfa_passes;
                 jfa_passes += 2; // tmp fix for non square screen ?
 
-                for (int i = 0; i < jfa_passes; i++) {
-                    if (i == 0) {
-                        renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
-                        renderer.flatland_jfa_B_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
-                    } else if (i % 2 == 0) {
+                for (int i = 1; i < jfa_passes; i++) {
+                    if (i % 2 == 0) {
                         renderer.flatland_jfa_A_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
                         renderer.flatland_jfa_B_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
                     } else {
@@ -556,7 +570,6 @@ int main(int argc, char** argv) {
                         renderer.flatland_jfa_A_texture.bind_as_image(1, OM3D::AccessType::WriteOnly);
                     }
 
-                    flatland_jfa_program->set_uniform<u32>("is_seed", (i == 0)); // only for first pass
                     flatland_jfa_program->set_uniform<u32>("offset", static_cast<u32>(std::pow(2, jfa_passes - i - 1)));
 
                     int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
