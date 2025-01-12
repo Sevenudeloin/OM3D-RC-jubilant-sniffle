@@ -9,5 +9,5 @@ layout(location = 0) in vec2 in_uv;
 layout(binding = 0) uniform sampler2D scene_image;
 
 void main() {
-    out_color = texture(scene_image, in_uv);;
+    out_color = vec4(texture(scene_image, in_uv).rgb, 1.0);
 }

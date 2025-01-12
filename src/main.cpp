@@ -403,8 +403,8 @@ struct RendererState {
             state.flatland_jfa_A_texture = Texture(size, ImageFormat::RG16_FLOAT); // For JFA pipeline
             state.flatland_jfa_B_texture = Texture(size, ImageFormat::RG16_FLOAT); // For JFA pipeline
             state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT); // Stores scene lights SDF
-            state.flatland_scene_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
-            state.flatland_prev_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
+            state.flatland_scene_A_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
+            state.flatland_scene_B_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
             state.flatland_final_texture = Texture(size, ImageFormat::RGBA8_UNORM); // Final output
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
@@ -430,8 +430,8 @@ struct RendererState {
     Texture flatland_jfa_A_texture;
     Texture flatland_jfa_B_texture;
     Texture flatland_jfa_dist_texture;
-    Texture flatland_scene_texture;
-    Texture flatland_prev_texture;
+    Texture flatland_scene_A_texture;
+    Texture flatland_scene_B_texture;
     Texture flatland_final_texture;
 
     Framebuffer z_prepass_framebuffer;
@@ -608,13 +608,31 @@ int main(int argc, char** argv) {
                 glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
 
                 flatland_raymarch_program->bind();
+                
+                // first pass 0
+                renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
+                renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly); // EMPTY HERE NOT USEFUL
+                renderer.flatland_scene_A_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
 
-                renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
-                renderer.flatland_jfa_dist_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
-                renderer.flatland_scene_texture.bind_as_image(2, OM3D::AccessType::WriteOnly);
+                flatland_jfa_program->set_uniform<u32>("base_ray_count", static_cast<u32>(4));
+                flatland_jfa_program->set_uniform<u32>("ray_count", static_cast<u32>(16));
 
                 int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
                 int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+
+                // other pass (odd)
+                renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
+                renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
+                renderer.flatland_scene_B_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
+
+                flatland_jfa_program->set_uniform<u32>("base_ray_count", static_cast<u32>(4));
+                flatland_jfa_program->set_uniform<u32>("ray_count", static_cast<u32>(4));
+
                 glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
 
                 glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
@@ -630,7 +648,7 @@ int main(int argc, char** argv) {
 
                 flatland_render_program->bind();
 
-                renderer.flatland_scene_texture.bind(0);
+                renderer.flatland_scene_B_texture.bind(0);
 
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }

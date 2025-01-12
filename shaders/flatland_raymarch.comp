@@ -2,12 +2,16 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(binding = 0, rgba8) uniform image2D draw_image;
-layout(binding = 1, r16f) uniform image2D jfa_dist_image;
-layout(binding = 2, rgba8) uniform image2D scene_image;
+layout(binding = 0, r16f) uniform image2D jfa_dist_image;
+layout(binding = 1, rgba8) uniform image2D draw_image;
+layout(binding = 2, rgba8) uniform image2D prev_image;
+layout(binding = 3, rgba8) uniform image2D output_scene_image;
 
-uniform int ray_count = 16; // 8-16
-uniform int max_steps = 32; // 48
+uniform vec2 resolution = vec2(800, 600);
+
+uniform int base_ray_count;
+uniform int ray_count;
+uniform int max_steps = 32;
 
 #define TAU 6.2831855
 #define EPS3 0.001
@@ -17,11 +21,7 @@ bool out_of_bounds( in vec2 uv ) {
     return uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;
 }
 
-float tmp_rand( in vec2 v ) {
-    return fract(sin(dot(v, vec2(12.9898, 78.233))) * 43758.5453);
-}
-
-void main() { // raymarch
+void main() {
     ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
 
     ivec2 texture_size = imageSize(jfa_dist_image);
@@ -33,40 +33,63 @@ void main() { // raymarch
 
     //
 
-    vec4 light = imageLoad(draw_image, pixel_coords);
-    if (light.a > 0.1) {
-        imageStore(scene_image, pixel_coords, light);
-        return;
-    }
+    // vec4 light = imageLoad(draw_image, pixel_coords);
+    // if (light.a > 0.1) {
+    //     imageStore(scene_image, pixel_coords, light);
+    //     return;
+    // }
+
+    bool is_last_layer = (ray_count == base_ray_count);
+
+    vec2 actual_coords = floor(uv * resolution);
+    vec2 effective_uv = is_last_layer ? uv : floor(actual_coords / 2.0) * 2.0 / resolution;
 
     float angle_step_size = TAU / float(ray_count);
 
-    float noise = tmp_rand(uv);
+    float interval_partial = 0.125;
+    float interval_start = is_last_layer ? 0.0 : interval_partial;
+    float interval_end = is_last_layer ? interval_partial : sqrt(2.0); // sqrt(2) is longest possible in uv space
+
+    vec2 resolution_scale = min(resolution.x, resolution.y) / resolution; // ?
+    float min_step_size = min(1.0 / resolution.x, 1.0 / resolution.y) * 0.5; // ?
 
     vec4 radiance = vec4(0.0);
 
     for (int i = 0; i < ray_count; i++) {
-        float angle = angle_step_size * (float(i) + noise);
+        float angle = angle_step_size * (float(i) + 0.5); // + 0.5 to avoid vertical angles
         vec2 ray_dir_uv = vec2(cos(angle), sin(angle)); // -sin ?
 
-        vec2 sample_uv = uv;
+        vec2 sample_uv = effective_uv + ray_dir_uv * interval_start * resolution_scale;
+
+        float traveled = interval_start;
 
         for (int step_i = 1; step_i < max_steps; step_i++) {
             float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * texture_size)).r;
-            sample_uv += ray_dir_uv * dist;
+            sample_uv += ray_dir_uv * dist * resolution_scale;
 
             if (out_of_bounds(sample_uv)) {
                 break;
             }
 
-            if (dist < 0.001) {
+            if (dist < min_step_size) {
                 radiance += imageLoad(draw_image, ivec2(sample_uv * texture_size));
                 break;
             }
+
+            traveled += dist;
+            if (traveled >= interval_end) {
+                break;
+            }
+        }
+
+        if (is_last_layer && radiance.a == 0.0) {
+            vec4 upper_sample = imageLoad(prev_image, pixel_coords);
+
+            radiance += upper_sample;
         }
     }
 
-    vec4 res = radiance / float(ray_count);
+    vec3 res = radiance.rgb / float(ray_count);
 
-    imageStore(scene_image, pixel_coords, vec4(res.rgb, 1.0));
+    imageStore(output_scene_image, pixel_coords, vec4(res, 1.0));
 }
