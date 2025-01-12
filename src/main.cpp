@@ -37,6 +37,8 @@ static bool flatland_clear_screen = false;
 static float flatland_drawing_color[4] = { 1.0, 1.0, 1.0, 1.0};
 static int flatland_line_width = 10; // in pixels
 
+static int rc_base_ray_count = 4;
+
 namespace OM3D {
 extern bool audit_bindings_before_draw;
 }
@@ -170,6 +172,16 @@ void gui(ImGuiRenderer& imgui) {
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("RC Base Ray Count")) {
+            if (ImGui::RadioButton("4", rc_base_ray_count == 4)) {
+                rc_base_ray_count = 4;
+            }
+            if (ImGui::RadioButton("16", rc_base_ray_count == 16)) {
+                rc_base_ray_count = 16;
+            }
+            ImGui::EndMenu();
+        }
+
         // if(ImGui::BeginMenu("Exposure")) {
         //     ImGui::DragFloat("Exposure", &exposure, 0.25f, 0.01f, 100.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
         //     if(exposure != 1.0f && ImGui::Button("Reset")) {
@@ -203,8 +215,8 @@ void gui(ImGuiRenderer& imgui) {
         //     display_camera_pos = !display_camera_pos;
         // }
 
-        ImGui::Separator();
-        ImGui::TextUnformatted(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
+        // ImGui::Separator();
+        // ImGui::TextUnformatted(reinterpret_cast<const char*>(glGetString(GL_RENDERER))); // nom de la carte
 
         ImGui::Separator();
         ImGui::Text("%.2f ms", delta_time * 1000.0f);
@@ -615,8 +627,8 @@ int main(int argc, char** argv) {
                 renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly); // EMPTY HERE NOT USEFUL
                 renderer.flatland_scene_A_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
 
-                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(4)); // 4 or 16
-                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(16)); // 16 or 156
+                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(rc_base_ray_count));
+                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(rc_base_ray_count*rc_base_ray_count));
 
                 int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
                 int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
@@ -630,8 +642,8 @@ int main(int argc, char** argv) {
                 renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
                 renderer.flatland_scene_B_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
 
-                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(4)); // 4 or 16
-                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(4)); // 4 or 16
+                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(rc_base_ray_count));
+                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(rc_base_ray_count));
 
                 glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
 
