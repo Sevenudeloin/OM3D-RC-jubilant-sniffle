@@ -615,8 +615,8 @@ int main(int argc, char** argv) {
                 renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly); // EMPTY HERE NOT USEFUL
                 renderer.flatland_scene_A_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
 
-                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(16)); // 4
-                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(256)); // 16
+                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(4)); // 4 or 16
+                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(16)); // 16 or 156
 
                 int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
                 int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
@@ -630,8 +630,8 @@ int main(int argc, char** argv) {
                 renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
                 renderer.flatland_scene_B_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
 
-                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(16)); // 4
-                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(16)); // 4
+                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(4)); // 4 or 16
+                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(4)); // 4 or 16
 
                 glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
 

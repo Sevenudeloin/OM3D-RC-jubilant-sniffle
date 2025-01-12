@@ -16,6 +16,7 @@ uniform uint max_steps = 32;
 #define TAU 6.2831855
 #define EPS3 0.001
 #define EPS5 0.00001
+#define SRGB 2.2
 
 bool out_of_bounds( in vec2 uv ) {
     return uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;
@@ -72,7 +73,8 @@ void main() {
             }
 
             if (dist < min_step_size) {
-                radiance += imageLoad(draw_image, ivec2(sample_uv * texture_size));
+                vec4 light_sample = imageLoad(draw_image, ivec2(sample_uv * texture_size));
+                radiance += vec4(pow(light_sample.rgb, vec3(SRGB)), 1.0);
                 break;
             }
 
@@ -85,11 +87,11 @@ void main() {
         if (is_last_layer && radiance.a == 0.0) {
             vec4 upper_sample = imageLoad(prev_image, pixel_coords);
 
-            radiance += upper_sample;
+            radiance += vec4(pow(upper_sample.rgb, vec3(SRGB)), upper_sample.a);
         }
     }
 
     vec3 res = radiance.rgb / float(ray_count);
 
-    imageStore(output_scene_image, pixel_coords, vec4(res, 1.0));
+    imageStore(output_scene_image, pixel_coords, vec4(pow(res, vec3(1.0 / SRGB)), 1.0));
 }
