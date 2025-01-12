@@ -9,9 +9,9 @@ layout(binding = 3, rgba8) uniform image2D output_scene_image;
 
 uniform vec2 resolution = vec2(800, 600);
 
-uniform int base_ray_count;
-uniform int ray_count;
-uniform int max_steps = 32;
+uniform uint base_ray_count;
+uniform uint ray_count;
+uniform uint max_steps = 32;
 
 #define TAU 6.2831855
 #define EPS3 0.001
