@@ -467,7 +467,7 @@ int main(int argc, char** argv) {
 
 
     static const int WINDOW_WIDTH = 800; // 1600
-    static const int WINDOW_HEIGHT = 600; // 900
+    static const int WINDOW_HEIGHT = 800; // 900
     GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "OM3D", nullptr, nullptr);
     glfw_check(window);
     DEFER(glfwDestroyWindow(window));
@@ -627,6 +627,7 @@ int main(int argc, char** argv) {
                 renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly); // EMPTY HERE NOT USEFUL
                 renderer.flatland_scene_A_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
 
+                flatland_raymarch_program->set_uniform<glm::vec2>("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
                 flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(rc_base_ray_count));
                 flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(rc_base_ray_count*rc_base_ray_count));
 
@@ -642,6 +643,7 @@ int main(int argc, char** argv) {
                 renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
                 renderer.flatland_scene_B_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
 
+                flatland_raymarch_program->set_uniform<glm::vec2>("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
                 flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(rc_base_ray_count));
                 flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(rc_base_ray_count));
 
