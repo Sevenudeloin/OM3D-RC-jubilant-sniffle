@@ -37,8 +37,9 @@ static bool flatland_clear_screen = false;
 static float flatland_drawing_color[4] = { 1.0, 1.0, 1.0, 1.0};
 static int flatland_line_width = 10; // in pixels
 
-static int rc_base_ray_count = 4;
-static int rc_cascade_level = 0;
+static int rc_base = 4;
+static int rc_cascade_count = 10;
+static int rc_cascade_index = 0; // last cascade to be drawn
 
 namespace OM3D {
 extern bool audit_bindings_before_draw;
@@ -173,22 +174,66 @@ void gui(ImGuiRenderer& imgui) {
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("RC Base Ray Count")) {
-            if (ImGui::RadioButton("4", rc_base_ray_count == 4)) {
-                rc_base_ray_count = 4;
+        if (ImGui::BeginMenu("RC Base")) {
+            if (ImGui::RadioButton("4", rc_base == 4)) {
+                rc_base = 4;
             }
-            if (ImGui::RadioButton("16", rc_base_ray_count == 16)) {
-                rc_base_ray_count = 16;
+            if (ImGui::RadioButton("16", rc_base == 16)) {
+                rc_base = 16;
             }
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("RC Cascade Level")) {
-            if (ImGui::RadioButton("0", rc_cascade_level == 0)) {
-                rc_cascade_level = 0;
+        if (ImGui::BeginMenu("RC Cascade Index")) { // so ugly
+            if (rc_cascade_count >= 0) {
+                if (ImGui::RadioButton("0", rc_cascade_index == 0)) {
+                    rc_cascade_index = 0;
+                }
             }
-            if (ImGui::RadioButton("1", rc_cascade_level == 1)) {
-                rc_cascade_level = 1;
+            if (rc_cascade_count >= 1) {
+                if (ImGui::RadioButton("1", rc_cascade_index == 1)) {
+                    rc_cascade_index = 1;
+                }
+            }
+            if (rc_cascade_count >= 2) {
+                if (ImGui::RadioButton("2", rc_cascade_index == 2)) {
+                    rc_cascade_index = 2;
+                }
+            }
+            if (rc_cascade_count >= 3) {
+                if (ImGui::RadioButton("3", rc_cascade_index == 3)) {
+                    rc_cascade_index = 3;
+                }
+            }
+            if (rc_cascade_count >= 4) {
+                if (ImGui::RadioButton("4", rc_cascade_index == 4)) {
+                    rc_cascade_index = 4;
+                }
+            }
+            if (rc_cascade_count >= 5) {
+                if (ImGui::RadioButton("5", rc_cascade_index == 5)) {
+                    rc_cascade_index = 5;
+                }
+            }
+            if (rc_cascade_count >= 6) {
+                if (ImGui::RadioButton("6", rc_cascade_index == 6)) {
+                    rc_cascade_index = 1;
+                }
+            }
+            if (rc_cascade_count >= 7) {
+                if (ImGui::RadioButton("7", rc_cascade_index == 7)) {
+                    rc_cascade_index = 7;
+                }
+            }
+            if (rc_cascade_count >= 8) {
+                if (ImGui::RadioButton("8", rc_cascade_index == 8)) {
+                    rc_cascade_index = 8;
+                }
+            }
+            if (rc_cascade_count >= 9) {
+                if (ImGui::RadioButton("9", rc_cascade_index == 9)) {
+                    rc_cascade_index = 9;
+                }
             }
             ImGui::EndMenu();
         }
@@ -638,6 +683,7 @@ int main(int argc, char** argv) {
             }
 
             // Flatland RC
+            int rc_iter = 0;
             {
                 PROFILE_GPU("Flatland RC");
 
@@ -645,42 +691,35 @@ int main(int argc, char** argv) {
 
                 flatland_raymarch_program->bind();
                 
-                if (rc_cascade_level <= 1)
-                {
-                // RC cascade 1
-                renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
-                renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
-                renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly); // EMPTY HERE NOT USEFUL
-                renderer.flatland_scene_A_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
-
                 flatland_raymarch_program->set_uniform<glm::vec2>("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
-                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(rc_base_ray_count));
-                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(rc_base_ray_count*rc_base_ray_count));
+                flatland_raymarch_program->set_uniform<float>("base", static_cast<float>(rc_base));
 
-                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
-                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
-                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+                rc_cascade_count = static_cast<int>(
+                    std::ceil(std::log(std::min(WINDOW_WIDTH, WINDOW_HEIGHT)) / std::log(rc_base))
+                );
+                flatland_raymarch_program->set_uniform<float>("cascade_count", static_cast<float>(rc_cascade_count));
 
-                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
-                }
+                for (int i = rc_cascade_count; i >= rc_cascade_index; i--) {
+                    flatland_raymarch_program->set_uniform<float>("cascade_index", static_cast<float>(i));
+                    flatland_raymarch_program->set_uniform<u32>("last_index", static_cast<u32>(i == rc_cascade_index)); // bool
 
-                if (rc_cascade_level <= 0)
-                {
-                // RC cascade 0
-                renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
-                renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
-                renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
-                renderer.flatland_scene_B_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
+                    renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                    renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
+                    if (rc_iter % 2 == 0) {
+                        renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_scene_B_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
+                    } else {
+                        renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_scene_A_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
+                    }
 
-                flatland_raymarch_program->set_uniform<glm::vec2>("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
-                flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(rc_base_ray_count));
-                flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(rc_base_ray_count));
+                    int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                    int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                    glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
 
-                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
-                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
-                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+                    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
 
-                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+                    rc_iter++;
                 }
             }
 
@@ -694,10 +733,9 @@ int main(int argc, char** argv) {
 
                 flatland_render_program->bind();
 
-                if (rc_cascade_level == 1) {
+                if (rc_iter % 2 == 0) { // if need this level of performance, "rc_iter & 1" same as "rc_iter % 2 == 1" 
                     renderer.flatland_scene_A_texture.bind(0);
-                }
-                else if (rc_cascade_level == 0) {
+                } else {
                     renderer.flatland_scene_B_texture.bind(0);
                 }
 
