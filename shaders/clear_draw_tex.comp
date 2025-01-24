@@ -1,0 +1,16 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0, rgba8) uniform image2D draw_image;
+
+void main() {
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 texture_size = imageSize(draw_image);
+    if (pixel_coords.x >= texture_size.x || pixel_coords.y >= texture_size.y) {
+        return;
+    }
+
+    imageStore(draw_image, pixel_coords, vec4(0.0));
+}

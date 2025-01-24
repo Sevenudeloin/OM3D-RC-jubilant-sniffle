@@ -34,12 +34,6 @@ void main() {
 
     //
 
-    // vec4 light = imageLoad(draw_image, pixel_coords);
-    // if (light.a > 0.1) {
-    //     imageStore(scene_image, pixel_coords, light);
-    //     return;
-    // }
-
     bool is_first_level = (ray_count == base_ray_count);
 
     float angle_step_size = TAU / float(ray_count);

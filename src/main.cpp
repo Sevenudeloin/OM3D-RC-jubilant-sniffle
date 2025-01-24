@@ -492,6 +492,8 @@ int main(int argc, char** argv) {
 
     // scene = create_default_scene();
 
+    auto clear_draw_tex_program = Program::from_file("clear_draw_tex.comp");
+
     auto flatland_draw_program = Program::from_file("flatland_draw.comp");
     auto flatland_jfa_seed_program = Program::from_file("flatland_jfa_seed.comp");
     auto flatland_jfa_program = Program::from_file("flatland_jfa.comp");
@@ -535,8 +537,19 @@ int main(int argc, char** argv) {
         {
             PROFILE_GPU("Frame");
 
+            // Clear screen (only draw texture)
             if (flatland_clear_screen) {
-                renderer.flatland_framebuffer.bind(false, true); // trick to clear screen, doesnt work anymore
+                // renderer.flatland_framebuffer.bind(false, true); // trick to clear screen, doesnt work anymore
+
+                clear_draw_tex_program->bind();
+
+                renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::WriteOnly);
+
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
             }
 
             // Flatland drawing
