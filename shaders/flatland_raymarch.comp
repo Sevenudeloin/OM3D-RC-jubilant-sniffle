@@ -42,9 +42,6 @@ void main() {
 
     bool is_first_level = (ray_count == base_ray_count);
 
-    vec2 actual_coords = floor(uv * resolution);
-    vec2 effective_uv = is_first_level ? uv : floor(actual_coords / 2.0) * 2.0 / resolution;
-
     float angle_step_size = TAU / float(ray_count);
 
     float interval_partial = 0.125; // play with
@@ -55,8 +52,8 @@ void main() {
     float min_step_size = min(1.0 / resolution.x, 1.0 / resolution.y) * 0.5;
 
     // Probes stuff
-    float sqrt_base = sqrt(float(base_ray_count));
-    float spacing = is_first_level ? 1.0 : sqrt_base;
+    float sqrt_base_ray_count = sqrt(float(base_ray_count));
+    float spacing = is_first_level ? 1.0 : sqrt_base_ray_count;
     vec2 size = floor(resolution / spacing);
 
     vec2 probe_relative_pos = mod(vec2(pixel_coords), size);
@@ -65,6 +62,7 @@ void main() {
     float base_index = float(base_ray_count) * (ray_pos.x + (spacing * ray_pos.y));
 
     vec2 probe_center = (probe_relative_pos + 0.5) * spacing;
+    vec2 normalized_probe_center = probe_center / resolution;
 
     // Raymarch
     vec4 radiance = vec4(0.0);
@@ -74,7 +72,7 @@ void main() {
         float angle = angle_step_size * (index + 0.5); // + 0.5 to avoid vertical angles
         vec2 ray_dir_uv = vec2(cos(angle), sin(angle)); // -sin ?
 
-        vec2 sample_uv = effective_uv + ray_dir_uv * interval_start * resolution_scale;
+        vec2 sample_uv = normalized_probe_center + ray_dir_uv * interval_start * resolution_scale;
 
         float traveled = interval_start;
 
@@ -86,7 +84,7 @@ void main() {
                 break;
             }
 
-            if (dist < min_step_size) {
+            if (dist <= min_step_size) {
                 vec4 light_sample = imageLoad(draw_image, ivec2(sample_uv * texture_size));
                 radiance += vec4(pow(light_sample.rgb, vec3(SRGB)), 1.0);
                 break;
@@ -100,9 +98,9 @@ void main() {
 
         if (is_first_level && radiance.a == 0.0) {
             // ??? UNDERSTAND TODO
-            float upper_spacing = sqrt_base;
+            float upper_spacing = sqrt_base_ray_count;
             vec2 upper_size = floor(resolution / upper_spacing);
-            vec2 upper_position = vec2(mod(index, sqrt_base), floor(index / upper_spacing)) * upper_size;
+            vec2 upper_position = vec2(mod(index, sqrt_base_ray_count), floor(index / upper_spacing)) * upper_size;
 
             vec2 offset = (probe_relative_pos + 0.5) / upper_spacing;
 

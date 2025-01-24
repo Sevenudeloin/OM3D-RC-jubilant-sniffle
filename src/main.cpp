@@ -38,6 +38,7 @@ static float flatland_drawing_color[4] = { 1.0, 1.0, 1.0, 1.0};
 static int flatland_line_width = 10; // in pixels
 
 static int rc_base_ray_count = 4;
+static int rc_cascade_level = 0;
 
 namespace OM3D {
 extern bool audit_bindings_before_draw;
@@ -178,6 +179,16 @@ void gui(ImGuiRenderer& imgui) {
             }
             if (ImGui::RadioButton("16", rc_base_ray_count == 16)) {
                 rc_base_ray_count = 16;
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("RC Cascade Level")) {
+            if (ImGui::RadioButton("0", rc_cascade_level == 0)) {
+                rc_cascade_level = 0;
+            }
+            if (ImGui::RadioButton("1", rc_cascade_level == 1)) {
+                rc_cascade_level = 1;
             }
             ImGui::EndMenu();
         }
@@ -621,7 +632,9 @@ int main(int argc, char** argv) {
 
                 flatland_raymarch_program->bind();
                 
-                // first pass 0
+                if (rc_cascade_level == 1)
+                {
+                // RC cascade 1
                 renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
                 renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
                 renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly); // EMPTY HERE NOT USEFUL
@@ -636,8 +649,11 @@ int main(int argc, char** argv) {
                 glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
 
                 glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+                }
 
-                // other pass (odd)
+                else if (rc_cascade_level == 0)
+                {
+                // RC cascade 0
                 renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
                 renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
                 renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
@@ -647,9 +663,12 @@ int main(int argc, char** argv) {
                 flatland_raymarch_program->set_uniform<u32>("base_ray_count", static_cast<u32>(rc_base_ray_count));
                 flatland_raymarch_program->set_uniform<u32>("ray_count", static_cast<u32>(rc_base_ray_count));
 
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
                 glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
 
                 glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+                }
             }
 
             // Render light image to fullscreen triangle
@@ -662,7 +681,12 @@ int main(int argc, char** argv) {
 
                 flatland_render_program->bind();
 
-                renderer.flatland_scene_B_texture.bind(0);
+                if (rc_cascade_level == 1) {
+                    renderer.flatland_scene_A_texture.bind(0);
+                }
+                else if (rc_cascade_level == 0) {
+                    renderer.flatland_scene_B_texture.bind(0);
+                }
 
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
