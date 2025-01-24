@@ -100,7 +100,9 @@ void main() {
             // ??? UNDERSTAND TODO
             float upper_spacing = sqrt_base_ray_count;
             vec2 upper_size = floor(resolution / upper_spacing);
-            vec2 upper_position = vec2(mod(index, sqrt_base_ray_count), floor(index / upper_spacing)) * upper_size;
+            vec2 upper_position = vec2(
+                mod(index, upper_spacing), floor(index / upper_spacing)
+            ) * upper_size;
 
             vec2 offset = (probe_relative_pos + 0.5) / upper_spacing;
 

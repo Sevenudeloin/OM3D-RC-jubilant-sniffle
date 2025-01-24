@@ -632,7 +632,7 @@ int main(int argc, char** argv) {
 
                 flatland_raymarch_program->bind();
                 
-                if (rc_cascade_level == 1)
+                if (rc_cascade_level <= 1)
                 {
                 // RC cascade 1
                 renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
@@ -651,7 +651,7 @@ int main(int argc, char** argv) {
                 glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
                 }
 
-                else if (rc_cascade_level == 0)
+                if (rc_cascade_level <= 0)
                 {
                 // RC cascade 0
                 renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
