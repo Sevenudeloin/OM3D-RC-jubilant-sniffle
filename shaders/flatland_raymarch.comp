@@ -44,7 +44,7 @@ void main() {
 
     float angle_step_size = TAU / float(ray_count);
 
-    float interval_partial = 0.125; // play with
+    float interval_partial = 0.02; // play with
     float interval_start = is_first_level ? 0.0 : interval_partial;
     float interval_end = is_first_level ? interval_partial : sqrt(2.0); // sqrt(2) is longest possible in uv space
 
@@ -69,12 +69,13 @@ void main() {
 
     for (int i = 0; i < base_ray_count; i++) {
         float index = base_index + float(i);
-        float angle = angle_step_size * (index + 0.5); // + 0.5 to avoid vertical angles
+        float angle = angle_step_size * (index + 0.5); // + 0.5 to avoid vertical angles (0.0 -> + pattern, 0.5 -> x pattern)
         vec2 ray_dir_uv = vec2(cos(angle), sin(angle)); // -sin ?
 
         vec2 sample_uv = normalized_probe_center + ray_dir_uv * interval_start * resolution_scale;
-
         float traveled = interval_start;
+
+        vec4 radiance_delta = vec4(0.0);
 
         for (int step_i = 1; step_i < max_steps; step_i++) {
             float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * texture_size)).r;
@@ -86,7 +87,7 @@ void main() {
 
             if (dist <= min_step_size) {
                 vec4 light_sample = imageLoad(draw_image, ivec2(sample_uv * texture_size));
-                radiance += vec4(pow(light_sample.rgb, vec3(SRGB)), 1.0);
+                radiance_delta += vec4(pow(light_sample.rgb, vec3(SRGB)), 1.0);
                 break;
             }
 
@@ -96,8 +97,7 @@ void main() {
             }
         }
 
-        if (is_first_level && radiance.a == 0.0) {
-            // ??? UNDERSTAND TODO
+        if (is_first_level && radiance_delta.a == 0.0) {
             float upper_spacing = sqrt_base_ray_count;
             vec2 upper_size = floor(resolution / upper_spacing);
             vec2 upper_position = vec2(
@@ -108,8 +108,10 @@ void main() {
 
             vec4 upper_sample = imageLoad(prev_image, ivec2(upper_position + offset));
 
-            radiance += vec4(pow(upper_sample.rgb, vec3(SRGB)), upper_sample.a);
+            radiance_delta += vec4(pow(upper_sample.rgb, vec3(SRGB)), upper_sample.a);
         }
+
+        radiance += radiance_delta;
     }
 
     vec3 res = radiance.rgb / float(base_ray_count);
