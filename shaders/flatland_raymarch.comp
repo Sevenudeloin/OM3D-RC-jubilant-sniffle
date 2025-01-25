@@ -75,15 +75,19 @@ void main() {
 
         vec4 radiance_delta = vec4(0.0);
 
-        for (int step_i = 1; step_i < MAX_STEPS && !oob_sample_uv; step_i++) {
-            float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * texture_size)).r;
+        // for (int step_i = 1; step_i < MAX_STEPS && !oob_sample_uv; step_i++) {
+        for (int step_i = 1; step_i < 1000; step_i++) {
+            // float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * texture_size)).r;
+            float dist = min_step_size;
             sample_uv += ray_dir_uv * dist * resolution_scale;
 
             if (out_of_bounds(sample_uv)) {
                 break;
             }
 
-            if (dist <= min_step_size) {
+            vec4 orig_light = imageLoad(draw_image, ivec2(sample_uv * texture_size));
+            // if (dist <= min_step_size) {
+            if (orig_light.a > 0.1) {
                 vec4 light_sample = imageLoad(draw_image, ivec2(sample_uv * texture_size));
                 radiance_delta += vec4(pow(light_sample.rgb, vec3(SRGB)), light_sample.a);
                 break;
