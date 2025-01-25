@@ -696,7 +696,7 @@ int main(int argc, char** argv) {
 
                 rc_cascade_count = static_cast<int>(
                     std::ceil(std::log(std::min(WINDOW_WIDTH, WINDOW_HEIGHT)) / std::log(rc_base))
-                );
+                ) + 1; // + 1 ugly fix
                 flatland_raymarch_program->set_uniform<float>("cascade_count", static_cast<float>(rc_cascade_count));
 
                 for (int i = rc_cascade_count; i >= rc_cascade_index; i--) {

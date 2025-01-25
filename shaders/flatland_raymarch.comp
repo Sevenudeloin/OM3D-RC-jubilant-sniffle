@@ -55,7 +55,7 @@ void main() {
 
     float modifier_hack = base < 16.0 ? 1.0 : 4.0; // really useful but ugly and dont understand yet
     float min_resolution = min(resolution.x, resolution.y);
-    float interval_start = is_first_level ? 0.0 : (modifier_hack * pow(base, cascade_index - 1)) / min_resolution;
+    float interval_start = is_first_level ? 0.0 : (modifier_hack * pow(base, cascade_index - 1.0)) / min_resolution;
     float interval_length = (modifier_hack * pow(base, cascade_index)) / min_resolution;
 
     vec2 resolution_scale = min_resolution / resolution;
@@ -70,11 +70,12 @@ void main() {
         vec2 ray_dir_uv = vec2(cos(angle), sin(angle));
 
         vec2 sample_uv = normalized_probe_center + ray_dir_uv * interval_start * resolution_scale;
+        bool oob_sample_uv = out_of_bounds(sample_uv);
         float traveled = 0.0;
 
         vec4 radiance_delta = vec4(0.0);
 
-        for (int step_i = 1; step_i < MAX_STEPS && !out_of_bounds(sample_uv); step_i++) {
+        for (int step_i = 1; step_i < MAX_STEPS && !oob_sample_uv; step_i++) {
             float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * texture_size)).r;
             sample_uv += ray_dir_uv * dist * resolution_scale;
 
