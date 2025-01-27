@@ -69,30 +69,27 @@ void main() {
         float angle = angle_step_size * (index + 0.5); // (for 4 dirs, "+" pattern, +0.5 -> "x" pattern)
         vec2 ray_dir_uv = vec2(cos(angle), sin(angle));
 
-        vec2 sample_uv = normalized_probe_center + ray_dir_uv * interval_start * resolution_scale;
-        bool oob_sample_uv = out_of_bounds(sample_uv);
-        float traveled = 0.0;
+        // vec2 sample_uv = normalized_probe_center + ray_dir_uv * interval_start * resolution_scale;
+        float traveled = interval_start;
 
         vec4 radiance_delta = vec4(0.0);
 
-        for (int step_i = 1; step_i < MAX_STEPS && !oob_sample_uv; step_i++) {
-        // for (int step_i = 1; step_i < 1000; step_i++) {
-            float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * texture_size)).r;
-            // float dist = min_step_size;
-            sample_uv += ray_dir_uv * dist * resolution_scale;
+        for (int step_i = 1; step_i < MAX_STEPS; step_i++) {
+            vec2 sample_uv = normalized_probe_center + (ray_dir_uv * traveled) * resolution_scale;
 
             if (out_of_bounds(sample_uv)) {
                 break;
             }
 
-            // vec4 orig_light = imageLoad(draw_image, ivec2(sample_uv * texture_size));
-            // if (orig_light.a > 0.1) {
-            if (dist <= min_step_size) {
+            vec4 orig_light = imageLoad(draw_image, ivec2(sample_uv * texture_size));
+            if (orig_light.a > 0.1) {
+            // if (dist <= min_step_size) { // THE PROBLEM
                 vec4 light_sample = imageLoad(draw_image, ivec2(sample_uv * texture_size));
                 radiance_delta += vec4(pow(light_sample.rgb, vec3(SRGB)), light_sample.a);
                 break;
             }
 
+            float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * texture_size)).r;
             traveled += dist;
             if (traveled >= interval_length) {
                 break;
@@ -111,7 +108,6 @@ void main() {
 
             vec4 upper_sample = imageLoad(prev_image, ivec2(upper_position + offset));
 
-            // radiance_delta += vec4(pow(upper_sample.rgb, vec3(SRGB)), upper_sample.a);
             radiance_delta += upper_sample;
         }
 
