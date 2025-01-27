@@ -1,6 +1,7 @@
 
 #include "ImageFormat.h"
 #include "SceneObject.h"
+#include "defines.h"
 #include <cmath>
 #include <glad/gl.h>
 
@@ -36,6 +37,11 @@ static glm::dvec2 prev_mouse_pos;
 static bool flatland_clear_screen = false;
 static float flatland_drawing_color[4] = { 1.0, 1.0, 1.0, 1.0};
 static int flatland_line_width = 10; // in pixels
+
+static int rc_base = 4;
+static int rc_cascade_count = 10;
+static int rc_cascade_index = 0; // last cascade to be drawn
+static int rc_debug_display = 0; // 0 final rc, 1 SDF, 2 JFA, 3 draw
 
 namespace OM3D {
 extern bool audit_bindings_before_draw;
@@ -170,6 +176,83 @@ void gui(ImGuiRenderer& imgui) {
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("RC Base")) {
+            if (ImGui::RadioButton("4", rc_base == 4)) {
+                rc_base = 4;
+            }
+            if (ImGui::RadioButton("16", rc_base == 16)) {
+                rc_base = 16;
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("RC Cascade Index")) { // so ugly
+            if (rc_cascade_count >= 0) {
+                if (ImGui::RadioButton("0", rc_cascade_index == 0)) {
+                    rc_cascade_index = 0;
+                }
+            }
+            if (rc_cascade_count >= 1) {
+                if (ImGui::RadioButton("1", rc_cascade_index == 1)) {
+                    rc_cascade_index = 1;
+                }
+            }
+            if (rc_cascade_count >= 2) {
+                if (ImGui::RadioButton("2", rc_cascade_index == 2)) {
+                    rc_cascade_index = 2;
+                }
+            }
+            if (rc_cascade_count >= 3) {
+                if (ImGui::RadioButton("3", rc_cascade_index == 3)) {
+                    rc_cascade_index = 3;
+                }
+            }
+            if (rc_cascade_count >= 4) {
+                if (ImGui::RadioButton("4", rc_cascade_index == 4)) {
+                    rc_cascade_index = 4;
+                }
+            }
+            if (rc_cascade_count >= 5) {
+                if (ImGui::RadioButton("5", rc_cascade_index == 5)) {
+                    rc_cascade_index = 5;
+                }
+            }
+            if (rc_cascade_count >= 6) {
+                if (ImGui::RadioButton("6", rc_cascade_index == 6)) {
+                    rc_cascade_index = 1;
+                }
+            }
+            if (rc_cascade_count >= 7) {
+                if (ImGui::RadioButton("7", rc_cascade_index == 7)) {
+                    rc_cascade_index = 7;
+                }
+            }
+            if (rc_cascade_count >= 8) {
+                if (ImGui::RadioButton("8", rc_cascade_index == 8)) {
+                    rc_cascade_index = 8;
+                }
+            }
+            if (rc_cascade_count >= 9) {
+                if (ImGui::RadioButton("9", rc_cascade_index == 9)) {
+                    rc_cascade_index = 9;
+                }
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("RC Debug")) {
+            if (ImGui::MenuItem("RC Final")) {
+                rc_debug_display = 0;
+            } else if (ImGui::MenuItem("SDF")) {
+                rc_debug_display = 1;
+            } else if (ImGui::MenuItem("JFA")) {
+                rc_debug_display = 2;
+            } else if (ImGui::MenuItem("Draw")) {
+                rc_debug_display = 3;
+            }
+            ImGui::EndMenu();
+        }
+
         // if(ImGui::BeginMenu("Exposure")) {
         //     ImGui::DragFloat("Exposure", &exposure, 0.25f, 0.01f, 100.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
         //     if(exposure != 1.0f && ImGui::Button("Reset")) {
@@ -203,8 +286,8 @@ void gui(ImGuiRenderer& imgui) {
         //     display_camera_pos = !display_camera_pos;
         // }
 
-        ImGui::Separator();
-        ImGui::TextUnformatted(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
+        // ImGui::Separator();
+        // ImGui::TextUnformatted(reinterpret_cast<const char*>(glGetString(GL_RENDERER))); // nom de la carte
 
         ImGui::Separator();
         ImGui::Text("%.2f ms", delta_time * 1000.0f);
@@ -399,17 +482,19 @@ struct RendererState {
             state.albedo_texture = Texture(size, ImageFormat::RGB8_sRGB);
             state.normal_texture = Texture(size, ImageFormat::RGB8_UNORM);
             // Flatland
-            state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM);
-            state.flatland_jfa_A_texture = Texture(size, ImageFormat::RG16_FLOAT);
-            state.flatland_jfa_B_texture = Texture(size, ImageFormat::RG16_FLOAT);
-            state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT);
-            state.flatland_light_texture = Texture(size, ImageFormat::RGBA8_UNORM);
+            state.flatland_draw_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For drawn pixels 
+            state.flatland_jfa_A_texture = Texture(size, ImageFormat::RG16_FLOAT); // For JFA pipeline
+            state.flatland_jfa_B_texture = Texture(size, ImageFormat::RG16_FLOAT); // For JFA pipeline
+            state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT); // Stores scene lights SDF
+            state.flatland_scene_A_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
+            state.flatland_scene_B_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
+            state.flatland_final_texture = Texture(size, ImageFormat::RGBA8_UNORM); // Final output
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});
             state.tone_map_framebuffer = Framebuffer(nullptr, std::array{&state.tone_mapped_texture});
             state.g_buffer_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.albedo_texture, &state.normal_texture});
             // Flatland
-            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_light_texture});
+            state.flatland_framebuffer = Framebuffer(nullptr, std::array{&state.flatland_final_texture});
         }
 
         return state;
@@ -428,7 +513,9 @@ struct RendererState {
     Texture flatland_jfa_A_texture;
     Texture flatland_jfa_B_texture;
     Texture flatland_jfa_dist_texture;
-    Texture flatland_light_texture;
+    Texture flatland_scene_A_texture;
+    Texture flatland_scene_B_texture;
+    Texture flatland_final_texture;
 
     Framebuffer z_prepass_framebuffer;
     Framebuffer main_framebuffer;
@@ -451,7 +538,7 @@ int main(int argc, char** argv) {
 
 
     static const int WINDOW_WIDTH = 800; // 1600
-    static const int WINDOW_HEIGHT = 600; // 900
+    static const int WINDOW_HEIGHT = 800; // 900
     GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "OM3D", nullptr, nullptr);
     glfw_check(window);
     DEFER(glfwDestroyWindow(window));
@@ -465,11 +552,14 @@ int main(int argc, char** argv) {
 
     // scene = create_default_scene();
 
+    auto clear_draw_tex_program = Program::from_file("clear_draw_tex.comp");
+
     auto flatland_draw_program = Program::from_file("flatland_draw.comp");
     auto flatland_jfa_seed_program = Program::from_file("flatland_jfa_seed.comp");
     auto flatland_jfa_program = Program::from_file("flatland_jfa.comp");
     auto flatland_jfa_dist_program = Program::from_file("flatland_jfa_dist.comp");
-    auto flatland_program = Program::from_files("flatland.frag", "screen.vert");
+    auto flatland_raymarch_program = Program::from_file("flatland_raymarch.comp");
+    auto flatland_render_program = Program::from_files("flatland_render.frag", "screen.vert");
     RendererState renderer;
 
     glm::dvec2 mouse_pos;
@@ -507,8 +597,19 @@ int main(int argc, char** argv) {
         {
             PROFILE_GPU("Frame");
 
+            // Clear screen (only draw texture)
             if (flatland_clear_screen) {
-                renderer.flatland_framebuffer.bind(false, true); // trick to clear screen, doesnt work anymore
+                // renderer.flatland_framebuffer.bind(false, true); // trick to clear screen, doesnt work anymore
+
+                clear_draw_tex_program->bind();
+
+                renderer.flatland_draw_texture.bind_as_image(0, OM3D::AccessType::WriteOnly);
+
+                int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
             }
 
             // Flatland drawing
@@ -597,19 +698,74 @@ int main(int argc, char** argv) {
             }
 
             // Flatland RC
+            int rc_iter = 0;
             {
                 PROFILE_GPU("Flatland RC");
 
                 glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
+
+                flatland_raymarch_program->bind();
+                
+                flatland_raymarch_program->set_uniform<glm::vec2>("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
+                flatland_raymarch_program->set_uniform<float>("base", static_cast<float>(rc_base));
+
+                rc_cascade_count = static_cast<int>(
+                    std::ceil(std::log(std::min(WINDOW_WIDTH, WINDOW_HEIGHT)) / std::log(rc_base))
+                ) + 1; // + 1 ugly fix
+                flatland_raymarch_program->set_uniform<float>("cascade_count", static_cast<float>(rc_cascade_count));
+
+                for (int i = rc_cascade_count; i >= rc_cascade_index; i--) {
+                    flatland_raymarch_program->set_uniform<float>("cascade_index", static_cast<float>(i));
+                    flatland_raymarch_program->set_uniform<u32>("last_index", static_cast<u32>(i == rc_cascade_index)); // bool
+
+                    renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
+                    renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
+                    if (rc_iter % 2 == 0) {
+                        renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_scene_B_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
+                    } else {
+                        renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_scene_A_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
+                    }
+
+                    int nb_groups_x = (WINDOW_WIDTH + 16 - 1) / 16;
+                    int nb_groups_y = (WINDOW_HEIGHT + 16 - 1) / 16;
+                    glDispatchCompute(nb_groups_x, nb_groups_y, 1);TEST_OPENGL_ERROR();
+
+                    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);TEST_OPENGL_ERROR();
+
+                    rc_iter++;
+                }
+            }
+
+            // Render light image to fullscreen triangle
+            {
+                PROFILE_GPU("Flatland render");
+
+                glDisable(GL_CULL_FACE); // Dont apply backface culling to fullscreen triangle
+
                 renderer.flatland_framebuffer.bind(false, false);
-                flatland_program->bind();
-                flatland_program->set_uniform<glm::vec2>("screen_res", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
-                renderer.flatland_draw_texture.bind(0);
-                renderer.flatland_jfa_dist_texture.bind(1);
+
+                flatland_render_program->bind();
+
+                if (rc_debug_display == 0) {
+                    if (rc_iter % 2 == 0) { // if need this level of performance, "rc_iter & 1" same as "rc_iter % 2 == 1" 
+                        renderer.flatland_scene_A_texture.bind(0);
+                    } else {
+                        renderer.flatland_scene_B_texture.bind(0);
+                    }
+                } else if (rc_debug_display == 1) {
+                    renderer.flatland_jfa_dist_texture.bind(0);
+                } else if (rc_debug_display == 2) {
+                    renderer.flatland_jfa_B_texture.bind(0);
+                } else if (rc_debug_display == 3) {
+                    renderer.flatland_draw_texture.bind(0);
+                }
+
                 glDrawArrays(GL_TRIANGLES, 0, 3);
             }
 
-            // Blit tonemap result to screen
+            // Blit result to screen
             {
                 PROFILE_GPU("Blit");
 

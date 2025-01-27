@@ -43,5 +43,5 @@ void main() {
         }
     }
 
-    imageStore(output_jfa_image, pixel_coords.xy, closest_seed);
+    imageStore(output_jfa_image, pixel_coords, closest_seed);
 }

@@ -18,5 +18,5 @@ void main() {
     vec2 nearest_seed = imageLoad(jfa_image, pixel_coords).xy;
     float dist = clamp(distance(uv, nearest_seed), 0.0, 1.0);
 
-    imageStore(jfa_dist_image, pixel_coords.xy, vec4(vec3(dist), 1.0));
+    imageStore(jfa_dist_image, pixel_coords, vec4(vec3(dist), 1.0));
 }
