@@ -1,10 +1,11 @@
-# OM3D
-EPITA course for 5th year students
+# AUTHORS
+- Ewan Lemonnier
+- Axelle Mandy
 
-MOOC: https://moodle.epita.fr/course/view.php?id=2292
+# Summary
+Project for EPITA, Radiance Cascades implementation in C++ using OpenGL.
 
-
-### How to build
+## Setup
 Requirements: cmake 3.20 minimum, C++17, and OpenGL 4.5.
 ```bash
 # At the project root
@@ -13,8 +14,3 @@ cd build/debug
 cmake ../..
 make
 ```
-
-### Contact
-If you have a problem, please send a mail to
-- alexandre.lamure@epita.fr
-- gregoire.angerand@gmail.com
