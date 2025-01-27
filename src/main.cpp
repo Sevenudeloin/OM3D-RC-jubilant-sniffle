@@ -1,6 +1,7 @@
 
 #include "ImageFormat.h"
 #include "SceneObject.h"
+#include "defines.h"
 #include <cmath>
 #include <glad/gl.h>
 
@@ -40,6 +41,7 @@ static int flatland_line_width = 10; // in pixels
 static int rc_base = 4;
 static int rc_cascade_count = 10;
 static int rc_cascade_index = 0; // last cascade to be drawn
+static int rc_debug_display = 0; // 0 final rc, 1 SDF, 2 JFA, 3 draw
 
 namespace OM3D {
 extern bool audit_bindings_before_draw;
@@ -234,6 +236,19 @@ void gui(ImGuiRenderer& imgui) {
                 if (ImGui::RadioButton("9", rc_cascade_index == 9)) {
                     rc_cascade_index = 9;
                 }
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("RC Debug")) {
+            if (ImGui::MenuItem("RC Final")) {
+                rc_debug_display = 0;
+            } else if (ImGui::MenuItem("SDF")) {
+                rc_debug_display = 1;
+            } else if (ImGui::MenuItem("JFA")) {
+                rc_debug_display = 2;
+            } else if (ImGui::MenuItem("Draw")) {
+                rc_debug_display = 3;
             }
             ImGui::EndMenu();
         }
@@ -733,10 +748,18 @@ int main(int argc, char** argv) {
 
                 flatland_render_program->bind();
 
-                if (rc_iter % 2 == 0) { // if need this level of performance, "rc_iter & 1" same as "rc_iter % 2 == 1" 
-                    renderer.flatland_scene_A_texture.bind(0);
-                } else {
-                    renderer.flatland_scene_B_texture.bind(0);
+                if (rc_debug_display == 0) {
+                    if (rc_iter % 2 == 0) { // if need this level of performance, "rc_iter & 1" same as "rc_iter % 2 == 1" 
+                        renderer.flatland_scene_A_texture.bind(0);
+                    } else {
+                        renderer.flatland_scene_B_texture.bind(0);
+                    }
+                } else if (rc_debug_display == 1) {
+                    renderer.flatland_jfa_dist_texture.bind(0);
+                } else if (rc_debug_display == 2) {
+                    renderer.flatland_jfa_B_texture.bind(0);
+                } else if (rc_debug_display == 3) {
+                    renderer.flatland_draw_texture.bind(0);
                 }
 
                 glDrawArrays(GL_TRIANGLES, 0, 3);

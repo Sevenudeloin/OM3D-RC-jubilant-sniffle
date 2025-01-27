@@ -18,5 +18,5 @@ void main() {
     vec4 input_color = imageLoad(draw_image, pixel_coords);
     vec4 output_color = vec4(uv * input_color.a, 0.0, 1.0);
 
-    imageStore(jfa_seed_image, pixel_coords.xy, output_color);
+    imageStore(jfa_seed_image, pixel_coords, output_color);
 }
