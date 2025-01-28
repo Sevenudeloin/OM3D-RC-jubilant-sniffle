@@ -4,6 +4,7 @@ layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(binding = 0, r16f) uniform image2D jfa_dist_image;
 layout(binding = 1, rgba8) uniform image2D draw_image;
+// layout(binding = 2) uniform sampler2D prev_image;
 layout(binding = 2, rgba8) uniform image2D prev_image;
 layout(binding = 3, rgba8) uniform image2D output_scene_image;
 
@@ -18,6 +19,10 @@ uniform bool last_index = false; // last cascade to be drawn
 
 #define TAU 6.2831855
 #define SRGB 2.2
+
+#define INTERP_CLOSE 0.5625
+#define INTERP_DIAG 0.1875
+#define INTERP_FAR 0.0625
 
 bool out_of_bounds( in vec2 uv ) {
     return uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;
@@ -64,6 +69,7 @@ void main() {
     // Raymarch
     vec4 radiance = vec4(0.0);
 
+    // Loop only through base rays
     for (int i = 0; i < int(base); i++) {
         float index = base_index + float(i);
         float angle = angle_step_size * (index + 0.5); // (for 4 dirs, "+" pattern, +0.5 -> "x" pattern)
@@ -81,10 +87,9 @@ void main() {
                 break;
             }
 
-            vec4 orig_light = imageLoad(draw_image, ivec2(sample_uv * texture_size));
-            if (orig_light.a > 0.1) {
+            vec4 light_sample = imageLoad(draw_image, ivec2(sample_uv * texture_size));
+            if (light_sample.a > 0.1) {
             // if (dist <= min_step_size) { // THE PROBLEM
-                vec4 light_sample = imageLoad(draw_image, ivec2(sample_uv * texture_size));
                 radiance_delta += vec4(pow(light_sample.rgb, vec3(SRGB)), light_sample.a);
                 break;
             }
@@ -96,6 +101,7 @@ void main() {
             }
         }
 
+        // Merge with upper cascade
         if (cascade_index < (cascade_count - 1.0) && radiance_delta.a == 0.0) {
             float upper_spacing = pow(sqrt_base, cascade_index + 1.0);
             vec2 upper_size = floor(resolution / upper_spacing);
@@ -107,16 +113,63 @@ void main() {
             offset = clamp(offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from one side to the other
 
             vec4 upper_sample = imageLoad(prev_image, ivec2(upper_position + offset));
+            // vec4 upper_sample = texture(prev_image, ivec2(upper_position + offset) / resolution);
 
-            radiance_delta += upper_sample;
+            ivec2 interp_weights_help = ivec2(mod(probe_relative_pos, sqrt_base));
+            // 0.5625 for closest, 0.1875 for diagonal, 0.0625 for furthest
+            float interp_weight = 0.0;
+            if (i == 0) {
+                if (interp_weights_help == ivec2(0, 0)) {
+                    interp_weight = INTERP_FAR;
+                } else if (interp_weights_help == ivec2(0, 1)) {
+                    interp_weight = INTERP_DIAG;
+                } else if (interp_weights_help == ivec2(1, 0)) {
+                    interp_weight = INTERP_DIAG;
+                } else if (interp_weights_help == ivec2(1, 1)) {
+                    interp_weight = INTERP_CLOSE;
+                }
+            } else if (i == 1) {
+                if (interp_weights_help == ivec2(0, 0)) {
+                    interp_weight = INTERP_DIAG;
+                } else if (interp_weights_help == ivec2(0, 1)) {
+                    interp_weight = INTERP_CLOSE;
+                } else if (interp_weights_help == ivec2(1, 0)) {
+                    interp_weight = INTERP_FAR;
+                } else if (interp_weights_help == ivec2(1, 1)) {
+                    interp_weight = INTERP_DIAG;
+                }
+            } else if (i == 2) {
+                if (interp_weights_help == ivec2(0, 0)) {
+                    interp_weight = INTERP_DIAG;
+                } else if (interp_weights_help == ivec2(0, 1)) {
+                    interp_weight = INTERP_FAR;
+                } else if (interp_weights_help == ivec2(1, 0)) {
+                    interp_weight = INTERP_CLOSE;
+                } else if (interp_weights_help == ivec2(1, 1)) {
+                    interp_weight = INTERP_DIAG;
+                }
+            } else if (i == 3) {
+                if (interp_weights_help == ivec2(0, 0)) {
+                    interp_weight = INTERP_CLOSE;
+                } else if (interp_weights_help == ivec2(0, 1)) {
+                    interp_weight = INTERP_DIAG;
+                } else if (interp_weights_help == ivec2(1, 0)) {
+                    interp_weight = INTERP_DIAG;
+                } else if (interp_weights_help == ivec2(1, 1)) {
+                    interp_weight = INTERP_FAR;
+                }
+            }
+
+            radiance_delta += upper_sample * interp_weight;
         }
 
         radiance += radiance_delta;
     }
 
-    vec3 res = radiance.rgb / float(base);
+    // vec3 res = radiance.rgb / float(base);
+    vec3 res = radiance.rgb;
 
     imageStore(output_scene_image, pixel_coords, vec4(
-        last_index ? pow(res, vec3(1.0 / SRGB)) : res, 1.0
+        last_index ? pow(res, vec3(1.0 / SRGB)) : res, 1.0 // only sRGB correct when writing if last cascade to be drawn
     ));
 }
