@@ -487,11 +487,7 @@ struct RendererState {
             state.flatland_jfa_B_texture = Texture(size, ImageFormat::RG16_FLOAT); // For JFA pipeline
             state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT); // Stores scene lights SDF
             state.flatland_scene_A_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
-            // state.flatland_scene_A_texture.set_parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            // state.flatland_scene_A_texture.set_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             state.flatland_scene_B_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
-            // state.flatland_scene_B_texture.set_parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            // state.flatland_scene_B_texture.set_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
             state.flatland_final_texture = Texture(size, ImageFormat::RGBA8_UNORM); // Final output
 
@@ -726,11 +722,9 @@ int main(int argc, char** argv) {
                     renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
                     renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
                     if (rc_iter % 2 == 0) {
-                        // renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
                         renderer.flatland_scene_A_texture.bind(2);
                         renderer.flatland_scene_B_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
                     } else {
-                        // renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
                         renderer.flatland_scene_B_texture.bind(2);
                         renderer.flatland_scene_A_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
                     }
