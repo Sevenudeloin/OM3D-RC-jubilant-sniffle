@@ -4,8 +4,7 @@ layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(binding = 0, r16f) uniform image2D jfa_dist_image;
 layout(binding = 1, rgba8) uniform image2D draw_image;
-// layout(binding = 2) uniform sampler2D prev_image;
-layout(binding = 2, rgba8) uniform image2D prev_image;
+layout(binding = 2) uniform sampler2D prev_image;
 layout(binding = 3, rgba8) uniform image2D output_scene_image;
 
 uniform vec2 resolution;
@@ -112,62 +111,15 @@ void main() {
             vec2 offset = (probe_relative_pos + 0.5) / sqrt_base;
             offset = clamp(offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from one side to the other
 
-            vec4 upper_sample = imageLoad(prev_image, ivec2(upper_position + offset));
-            // vec4 upper_sample = texture(prev_image, ivec2(upper_position + offset) / resolution);
+            vec4 upper_sample = texture(prev_image, (upper_position + offset) / resolution);
 
-            ivec2 interp_weights_help = ivec2(mod(probe_relative_pos, sqrt_base));
-            // 0.5625 for closest, 0.1875 for diagonal, 0.0625 for furthest
-            float interp_weight = 0.0;
-            if (i == 0) {
-                if (interp_weights_help == ivec2(0, 0)) {
-                    interp_weight = INTERP_FAR;
-                } else if (interp_weights_help == ivec2(0, 1)) {
-                    interp_weight = INTERP_DIAG;
-                } else if (interp_weights_help == ivec2(1, 0)) {
-                    interp_weight = INTERP_DIAG;
-                } else if (interp_weights_help == ivec2(1, 1)) {
-                    interp_weight = INTERP_CLOSE;
-                }
-            } else if (i == 1) {
-                if (interp_weights_help == ivec2(0, 0)) {
-                    interp_weight = INTERP_DIAG;
-                } else if (interp_weights_help == ivec2(0, 1)) {
-                    interp_weight = INTERP_CLOSE;
-                } else if (interp_weights_help == ivec2(1, 0)) {
-                    interp_weight = INTERP_FAR;
-                } else if (interp_weights_help == ivec2(1, 1)) {
-                    interp_weight = INTERP_DIAG;
-                }
-            } else if (i == 2) {
-                if (interp_weights_help == ivec2(0, 0)) {
-                    interp_weight = INTERP_DIAG;
-                } else if (interp_weights_help == ivec2(0, 1)) {
-                    interp_weight = INTERP_FAR;
-                } else if (interp_weights_help == ivec2(1, 0)) {
-                    interp_weight = INTERP_CLOSE;
-                } else if (interp_weights_help == ivec2(1, 1)) {
-                    interp_weight = INTERP_DIAG;
-                }
-            } else if (i == 3) {
-                if (interp_weights_help == ivec2(0, 0)) {
-                    interp_weight = INTERP_CLOSE;
-                } else if (interp_weights_help == ivec2(0, 1)) {
-                    interp_weight = INTERP_DIAG;
-                } else if (interp_weights_help == ivec2(1, 0)) {
-                    interp_weight = INTERP_DIAG;
-                } else if (interp_weights_help == ivec2(1, 1)) {
-                    interp_weight = INTERP_FAR;
-                }
-            }
-
-            radiance_delta += upper_sample * interp_weight;
+            radiance_delta += upper_sample;
         }
 
         radiance += radiance_delta;
     }
 
-    // vec3 res = radiance.rgb / float(base);
-    vec3 res = radiance.rgb;
+    vec3 res = radiance.rgb / float(base);
 
     imageStore(output_scene_image, pixel_coords, vec4(
         last_index ? pow(res, vec3(1.0 / SRGB)) : res, 1.0 // only sRGB correct when writing if last cascade to be drawn

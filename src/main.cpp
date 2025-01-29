@@ -721,12 +721,12 @@ int main(int argc, char** argv) {
                     renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
                     renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);
                     if (rc_iter % 2 == 0) {
-                        renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
-                        // renderer.flatland_scene_A_texture.bind(2);
+                        // renderer.flatland_scene_A_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_scene_A_texture.bind(2);
                         renderer.flatland_scene_B_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
                     } else {
-                        renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
-                        // renderer.flatland_scene_B_texture.bind(2);
+                        // renderer.flatland_scene_B_texture.bind_as_image(2, OM3D::AccessType::ReadOnly);
+                        renderer.flatland_scene_B_texture.bind(2);
                         renderer.flatland_scene_A_texture.bind_as_image(3, OM3D::AccessType::WriteOnly);
                     }
 
