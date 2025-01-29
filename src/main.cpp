@@ -176,15 +176,15 @@ void gui(ImGuiRenderer& imgui) {
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("RC Base")) {
-            if (ImGui::RadioButton("4", rc_base == 4)) {
-                rc_base = 4;
-            }
-            if (ImGui::RadioButton("16", rc_base == 16)) {
-                rc_base = 16;
-            }
-            ImGui::EndMenu();
-        }
+        // if (ImGui::BeginMenu("RC Base")) { // always 4 now i think
+        //     if (ImGui::RadioButton("4", rc_base == 4)) {
+        //         rc_base = 4;
+        //     }
+        //     if (ImGui::RadioButton("16", rc_base == 16)) {
+        //         rc_base = 16;
+        //     }
+        //     ImGui::EndMenu();
+        // }
 
         if (ImGui::BeginMenu("RC Cascade Index")) { // so ugly
             if (rc_cascade_count >= 0) {

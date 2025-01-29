@@ -4,6 +4,7 @@ layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(binding = 0, r16f) uniform image2D jfa_dist_image;
 layout(binding = 1, rgba8) uniform image2D draw_image;
+// layout(binding = 2, rgba8) uniform image2D prev_image;
 layout(binding = 2) uniform sampler2D prev_image;
 layout(binding = 3, rgba8) uniform image2D output_scene_image;
 
@@ -57,10 +58,9 @@ void main() {
     vec2 probe_center = (probe_relative_pos + 0.5) * spacing;
     vec2 normalized_probe_center = probe_center / resolution;
 
-    float modifier_hack = base < 16.0 ? 1.0 : 4.0; // really useful but ugly and dont understand yet
     float min_resolution = min(resolution.x, resolution.y);
-    float interval_start = is_first_level ? 0.0 : (modifier_hack * pow(base, cascade_index - 1.0)) / min_resolution;
-    float interval_length = (modifier_hack * pow(base, cascade_index)) / min_resolution;
+    float interval_start = is_first_level ? 0.0 : (pow(base, cascade_index - 1.0)) / min_resolution;
+    float interval_length = (pow(base, cascade_index)) / min_resolution;
 
     vec2 resolution_scale = min_resolution / resolution;
     float min_step_size = min(1.0 / resolution.x, 1.0 / resolution.y) * 0.5;
@@ -112,6 +112,7 @@ void main() {
             offset = clamp(offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from one side to the other
 
             vec4 upper_sample = texture(prev_image, (upper_position + offset) / resolution);
+            // vec4 upper_sample = imageLoad(prev_image, ivec2(upper_position + offset));
 
             radiance_delta += upper_sample;
         }
