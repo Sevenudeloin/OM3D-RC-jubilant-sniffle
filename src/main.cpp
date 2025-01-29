@@ -487,7 +487,12 @@ struct RendererState {
             state.flatland_jfa_B_texture = Texture(size, ImageFormat::RG16_FLOAT); // For JFA pipeline
             state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT); // Stores scene lights SDF
             state.flatland_scene_A_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
+            // state.flatland_scene_A_texture.set_parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            // state.flatland_scene_A_texture.set_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             state.flatland_scene_B_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
+            // state.flatland_scene_B_texture.set_parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            // state.flatland_scene_B_texture.set_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
             state.flatland_final_texture = Texture(size, ImageFormat::RGBA8_UNORM); // Final output
 
             state.main_framebuffer = Framebuffer(&state.depth_texture, std::array{&state.lit_hdr_texture});

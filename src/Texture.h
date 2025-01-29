@@ -5,6 +5,7 @@
 #include "ImageFormat.h"
 
 #include <glm/vec2.hpp>
+#include <glad/gl.h>
 
 #include <vector>
 #include <memory>
@@ -39,7 +40,7 @@ class Texture {
 
         glm::uvec2 size() const;
 
-        // void set_parameter(GLenum pname, GLint param);
+        void set_parameter(GLenum pname, GLint param);
 
         static u32 mip_levels(glm::uvec2 size);
 

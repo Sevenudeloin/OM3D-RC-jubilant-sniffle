@@ -92,9 +92,9 @@ glm::uvec2 Texture::size() const {
     return _size;
 }
 
-// void Texture::set_parameter(GLenum pname, GLint param) {
-//     glTextureParameteri(_handle.get(), pname, param);
-// }
+void Texture::set_parameter(GLenum pname, GLint param) {
+    glTextureParameteri(_handle.get(), pname, param);
+}
 
 // Return number of mip levels needed
 u32 Texture::mip_levels(glm::uvec2 size) {
