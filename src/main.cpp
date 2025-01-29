@@ -36,7 +36,7 @@ static std::vector<std::string> scene_files;
 static glm::dvec2 prev_mouse_pos;
 static bool flatland_clear_screen = false;
 static float flatland_drawing_color[4] = { 1.0, 1.0, 1.0, 1.0};
-static int flatland_line_width = 10; // in pixels
+static int flatland_line_width = 6; // in pixels
 
 static int rc_base = 4;
 static int rc_cascade_count = 10;
@@ -717,7 +717,6 @@ int main(int argc, char** argv) {
 
                 for (int i = rc_cascade_count; i >= rc_cascade_index; i--) {
                     flatland_raymarch_program->set_uniform<float>("cascade_index", static_cast<float>(i));
-                    flatland_raymarch_program->set_uniform<u32>("last_index", static_cast<u32>(i == rc_cascade_index)); // bool
 
                     renderer.flatland_jfa_dist_texture.bind_as_image(0, OM3D::AccessType::ReadOnly);
                     renderer.flatland_draw_texture.bind_as_image(1, OM3D::AccessType::ReadOnly);

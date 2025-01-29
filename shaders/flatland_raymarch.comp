@@ -12,7 +12,6 @@ uniform vec2 resolution;
 uniform float base;
 uniform float cascade_index;
 uniform float cascade_count;
-uniform bool last_index = false; // last cascade to be drawn
 
 #define MAX_STEPS 32
 
@@ -25,6 +24,54 @@ uniform bool last_index = false; // last cascade to be drawn
 
 bool out_of_bounds( in vec2 uv ) {
     return uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;
+}
+
+vec4 raymarch(vec2 ray_dir_uv, vec2 normalized_probe_center, float interval_start, float interval_length, vec2 resolution_scale) {
+    float traveled = interval_start;
+
+    vec4 radiance_delta = vec4(0.0);
+
+    for (int step_i = 1; step_i < MAX_STEPS; step_i++) {
+        vec2 sample_uv = normalized_probe_center + (ray_dir_uv * traveled) * resolution_scale;
+
+        if (out_of_bounds(sample_uv)) {
+            break;
+        }
+
+        vec4 light_sample = imageLoad(draw_image, ivec2(sample_uv * resolution));
+        if (light_sample.a > 0.1) {
+            radiance_delta += vec4(pow(light_sample.rgb, vec3(SRGB)), light_sample.a);
+            break;
+        }
+
+        float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * resolution)).r;
+        traveled += dist;
+        if (traveled >= interval_length) {
+            break;
+        }
+    }
+
+    return radiance_delta;
+}
+
+vec4 merge(vec4 radiance_delta, float index, vec2 probe_relative_pos, float sqrt_base) {
+    // Merge with upper cascade
+    if (cascade_index < (cascade_count - 1.0) && radiance_delta.a == 0.0) {
+        float upper_spacing = pow(sqrt_base, cascade_index + 1.0);
+        vec2 upper_size = floor(resolution / upper_spacing);
+        vec2 upper_position = vec2(
+            mod(index, upper_spacing), floor(index / upper_spacing)
+        ) * upper_size;
+
+        vec2 offset = (probe_relative_pos + 0.5) / sqrt_base;
+        offset = clamp(offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
+
+        vec4 upper_sample = texture(prev_image, (upper_position + offset) / resolution);
+
+        return radiance_delta + upper_sample;
+    } else {
+        return radiance_delta;
+    }
 }
 
 void main() {
@@ -64,7 +111,8 @@ void main() {
     vec2 resolution_scale = min_resolution / resolution;
     float min_step_size = min(1.0 / resolution.x, 1.0 / resolution.y) * 0.5;
 
-    // Raymarch
+    //
+
     vec4 radiance = vec4(0.0);
 
     // Loop only through base rays
@@ -75,51 +123,12 @@ void main() {
 
         float traveled = interval_start;
 
-        vec4 radiance_delta = vec4(0.0);
+        vec4 radiance_delta = raymarch(ray_dir_uv, normalized_probe_center, interval_start, interval_length, resolution_scale);
 
-        for (int step_i = 1; step_i < MAX_STEPS; step_i++) {
-            vec2 sample_uv = normalized_probe_center + (ray_dir_uv * traveled) * resolution_scale;
-
-            if (out_of_bounds(sample_uv)) {
-                break;
-            }
-
-            vec4 light_sample = imageLoad(draw_image, ivec2(sample_uv * texture_size));
-            if (light_sample.a > 0.1) {
-                radiance_delta += vec4(pow(light_sample.rgb, vec3(SRGB)), light_sample.a);
-                break;
-            }
-
-            float dist = imageLoad(jfa_dist_image, ivec2(sample_uv * texture_size)).r;
-            traveled += dist;
-            if (traveled >= interval_length) {
-                break;
-            }
-        }
-
-        // Merge with upper cascade
-        if (cascade_index < (cascade_count - 1.0) && radiance_delta.a == 0.0) {
-            float upper_spacing = pow(sqrt_base, cascade_index + 1.0);
-            vec2 upper_size = floor(resolution / upper_spacing);
-            vec2 upper_position = vec2(
-                mod(index, upper_spacing), floor(index / upper_spacing)
-            ) * upper_size;
-
-            vec2 offset = (probe_relative_pos + 0.5) / sqrt_base;
-            offset = clamp(offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
-
-            vec4 upper_sample = texture(prev_image, (upper_position + offset) / resolution);
-
-            radiance_delta += upper_sample;
-        }
-
-        radiance += radiance_delta;
+        radiance += merge(radiance_delta, index, probe_relative_pos, sqrt_base);
     }
 
     vec3 res = radiance.rgb / float(base);
 
-    // imageStore(output_scene_image, pixel_coords, vec4(
-    //     last_index ? pow(res, vec3(1.0 / SRGB)) : res, 1.0 // only sRGB correct when writing if last cascade to be drawn
-    // ));
     imageStore(output_scene_image, pixel_coords, vec4(res, 1.0));
 }
