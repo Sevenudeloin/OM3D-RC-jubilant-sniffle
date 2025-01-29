@@ -18,7 +18,7 @@ uniform bool last_index = false; // last cascade to be drawn
 #define MAX_STEPS 32
 
 #define TAU 6.2831855
-#define SRGB 2.2
+#define SRGB 1.0
 
 #define INTERP_CLOSE 0.5625
 #define INTERP_DIAG 0.1875
@@ -109,7 +109,7 @@ void main() {
             ) * upper_size;
 
             vec2 offset = (probe_relative_pos + 0.5) / sqrt_base;
-            offset = clamp(offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from one side to the other
+            offset = clamp(offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
 
             vec4 upper_sample = texture(prev_image, (upper_position + offset) / resolution);
             // vec4 upper_sample = imageLoad(prev_image, ivec2(upper_position + offset));
