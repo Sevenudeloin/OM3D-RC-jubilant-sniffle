@@ -43,6 +43,8 @@ static int rc_cascade_count = 10;
 static int rc_cascade_index = 0; // last cascade to be drawn
 static int rc_debug_display = 0; // 0 final rc, 1 SDF, 2 JFA, 3 draw
 
+#define HW_INTERP (false)
+
 namespace OM3D {
 extern bool audit_bindings_before_draw;
 }
@@ -488,6 +490,12 @@ struct RendererState {
             state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT); // Stores scene lights SDF
             state.flatland_scene_A_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
             state.flatland_scene_B_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
+#if !HW_INTERP // if no hardware interpolation
+            state.flatland_scene_A_texture.set_parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            state.flatland_scene_A_texture.set_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            state.flatland_scene_B_texture.set_parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            state.flatland_scene_B_texture.set_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+#endif
 
             state.flatland_final_texture = Texture(size, ImageFormat::RGBA8_UNORM); // Final output
 
@@ -708,6 +716,8 @@ int main(int argc, char** argv) {
                 flatland_raymarch_program->bind();
                 
                 flatland_raymarch_program->set_uniform<glm::vec2>("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
+                flatland_raymarch_program->set_uniform<u32>("hw_interp", static_cast<u32>(HW_INTERP)); // bool
+
                 flatland_raymarch_program->set_uniform<float>("base", static_cast<float>(rc_base));
 
                 rc_cascade_count = static_cast<int>(

@@ -8,6 +8,7 @@ layout(binding = 2) uniform sampler2D prev_image;
 layout(binding = 3, rgba8) uniform image2D output_scene_image;
 
 uniform vec2 resolution;
+uniform bool hw_interp; // hardware interpolation
 
 uniform float base;
 uniform float cascade_index;
@@ -54,24 +55,73 @@ vec4 raymarch(vec2 ray_dir_uv, vec2 normalized_probe_center, float interval_star
     return radiance_delta;
 }
 
-vec4 merge(vec4 radiance_delta, float index, vec2 probe_relative_pos, float sqrt_base) {
-    // Merge with upper cascade
-    if (cascade_index < (cascade_count - 1.0) && radiance_delta.a == 0.0) {
-        float upper_spacing = pow(sqrt_base, cascade_index + 1.0);
-        vec2 upper_size = floor(resolution / upper_spacing);
-        vec2 upper_position = vec2(
-            mod(index, upper_spacing), floor(index / upper_spacing)
-        ) * upper_size;
-
-        vec2 offset = (probe_relative_pos + 0.5) / sqrt_base;
-        offset = clamp(offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
-
-        vec4 upper_sample = texture(prev_image, (upper_position + offset) / resolution);
-
-        return radiance_delta + upper_sample;
-    } else {
+vec4 merge_hw_interp(vec4 radiance_delta, float index, vec2 probe_relative_pos, float sqrt_base) {
+    if (cascade_index >= (cascade_count - 1.0) || radiance_delta.a > 0.0) {
         return radiance_delta;
     }
+
+    float upper_spacing = pow(sqrt_base, cascade_index + 1.0);
+    vec2 upper_size = floor(resolution / upper_spacing);
+    vec2 upper_tex_position = vec2(
+        mod(index, upper_spacing), floor(index / upper_spacing)
+    ) * upper_size; // BL corner of corresponding sub-texture in upper cascade (TEXTURE PIXEL COORDINATES)
+
+    vec2 upper_tex_offset = (probe_relative_pos + 0.5) / sqrt_base;
+    upper_tex_offset = clamp(upper_tex_offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
+
+    vec4 upper_sample = texture(prev_image, (upper_tex_position + upper_tex_offset) / resolution);
+
+    return radiance_delta + upper_sample;
+}
+
+ivec2 get_bilinear_offset(int i) {
+    ivec2 offsets[4] = ivec2[4](ivec2(0, 0), ivec2(1, 0), ivec2(0, 1), ivec2(1, 1)); 
+    return offsets[i];
+}
+
+vec4 get_bilinear_weights(vec2 offset_ratio) {
+    return vec4(
+        (1.0 - offset_ratio.x) * (1.0 - offset_ratio.y),
+        offset_ratio.x * (1.0 - offset_ratio.y),
+        (1.0 - offset_ratio.x) * offset_ratio.y,
+        offset_ratio.x * offset_ratio.y
+    );
+}
+
+vec4 merge_manual_interp(vec4 radiance_delta, float index, vec2 probe_relative_pos, float sqrt_base) {
+    if (cascade_index >= (cascade_count - 1.0) || radiance_delta.a > 0.0) {
+        return radiance_delta;
+    }
+
+    float spacing = pow(sqrt_base, cascade_index);
+    vec2 probe_center = (probe_relative_pos + 0.5) * spacing;
+    vec2 normalized_probe_center = probe_center / resolution;
+
+    float upper_spacing = pow(sqrt_base, cascade_index + 1.0);
+    vec2 upper_size = floor(resolution / upper_spacing);
+
+    vec2 tmp_upper_probe_pos = normalized_probe_center * upper_size - vec2(0.5);
+    ivec2 BL_upper_relative_pos = ivec2(floor(tmp_upper_probe_pos)); // BL probe relative pos (index) in Cn+1 (upper cascade)
+    vec2 upper_offset_ratio = fract(tmp_upper_probe_pos); // How much are we offset compared to BL upper probe (between the 4 upper probes)
+
+    vec4 bilinear_weights = get_bilinear_weights(upper_offset_ratio);
+
+    vec4 upper_sample = vec4(0.0f);
+
+    for (int i = 0; i < base; i++) {
+        ivec2 cur_upper_relative_pos = clamp(BL_upper_relative_pos + get_bilinear_offset(i), ivec2(0), ivec2(upper_size) - ivec2(1)); // BL, BR, TL, TR
+
+        vec2 upper_tex_position = vec2(
+            mod(index, upper_spacing), floor(index / upper_spacing)
+        ) * upper_size; // BL corner of corresponding sub-texture in upper cascade (TEXTURE PIXEL COORDINATES)
+
+        vec2 upper_tex_offset = ((cur_upper_relative_pos + 0.5) * upper_spacing) / sqrt_base;
+        upper_tex_offset = clamp(upper_tex_offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
+
+        upper_sample += texture(prev_image, (upper_tex_position + upper_tex_offset) / resolution) * bilinear_weights[i];
+    }
+
+    return radiance_delta + upper_sample;
 }
 
 vec4 merge_bilinear_fix(vec4 radiance_delta, float index, vec2 probe_relative_pos, float sqrt_base) {
@@ -157,8 +207,13 @@ void main() {
 
         vec4 radiance_delta = raymarch(ray_dir_uv, normalized_probe_center, interval_start, interval_length, resolution_scale);
 
-        // radiance += merge(radiance_delta, index, probe_relative_pos, sqrt_base);
-        radiance += merge_bilinear_fix(radiance_delta, index, probe_relative_pos, sqrt_base);
+        // Merge with upper cascade
+        if (hw_interp) {
+            radiance += merge_hw_interp(radiance_delta, index, probe_relative_pos, sqrt_base);
+        } else {
+            radiance += merge_manual_interp(radiance_delta, index, probe_relative_pos, sqrt_base);
+            // radiance += merge_bilinear_fix(radiance_delta, index, probe_relative_pos, sqrt_base);
+        }
     }
 
     vec3 res = radiance.rgb / float(base);
