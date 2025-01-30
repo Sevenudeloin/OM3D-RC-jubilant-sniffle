@@ -9,6 +9,7 @@ layout(binding = 3, rgba8) uniform image2D output_scene_image;
 
 uniform vec2 resolution;
 uniform bool hw_interp; // hardware interpolation
+uniform bool bilinear_fix;
 
 uniform float base;
 uniform float cascade_index;
@@ -124,11 +125,7 @@ vec4 merge_manual_interp(vec4 radiance_delta, float index, vec2 probe_relative_p
     return radiance_delta + upper_sample;
 }
 
-vec4 merge_bilinear_fix(vec4 radiance_delta, float index, vec2 probe_relative_pos, float sqrt_base) {
-    if (cascade_index >= (cascade_count - 1.0) || radiance_delta.a > 0.0) {
-        return radiance_delta;
-    }
-
+vec4 merge_bilinear_fix(vec2 ray_dir_uv, float index, vec2 probe_relative_pos, float sqrt_base) { // FIXME !
     float spacing = pow(sqrt_base, cascade_index);
     vec2 probe_center = (probe_relative_pos + 0.5) * spacing;
     vec2 normalized_probe_center = probe_center / resolution;
@@ -154,10 +151,33 @@ vec4 merge_bilinear_fix(vec4 radiance_delta, float index, vec2 probe_relative_po
         vec2 upper_tex_offset = cur_upper_relative_pos + 0.5; // wise ancient mystical tree magic
         upper_tex_offset = clamp(upper_tex_offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
 
-        upper_sample += texture(prev_image, (upper_tex_position + upper_tex_offset) / resolution) * bilinear_weights[i];
+        vec4 cur_upper_sample = vec4(0.0, 0.0, 0.0, 1.0);
+        if (cascade_index < (cascade_count - 1.0)) {
+            cur_upper_sample = texture(prev_image, (upper_tex_position + upper_tex_offset) / resolution);
+        }
+
+        //
+
+        float min_resolution = min(resolution.x, resolution.y);
+        float interval_start = (cascade_index == 0.0) ? 0.0 : (pow(base, cascade_index)) / min_resolution;
+        // float interval_start = 0.0;
+        float interval_length = (pow(base, cascade_index)) / min_resolution;
+        float upper_interval_length = (pow(base, cascade_index + 1.0)) / min_resolution;
+
+        vec2 ray_start = probe_center;// + ray_dir_uv * interval_length;
+        vec2 ray_end = ((cur_upper_relative_pos + 0.5) * upper_spacing); // + ray_dir_uv * upper_interval_length;
+        vec2 new_ray_dir_uv = normalize(ray_end - ray_start);
+
+        vec2 resolution_scale = min_resolution / resolution;
+
+        vec4 new_ray_hit = raymarch(new_ray_dir_uv, (ray_start / resolution), interval_start, length(ray_end - ray_start), resolution_scale);
+
+        //
+
+        upper_sample += (cur_upper_sample + new_ray_hit) * bilinear_weights[i];
     }
 
-    return radiance_delta + upper_sample;
+    return upper_sample;
 }
 
 void main() {
@@ -207,17 +227,19 @@ void main() {
         float angle = angle_step_size * (index + 0.5); // (for 4 dirs, "+" pattern, +0.5 -> "x" pattern)
         vec2 ray_dir_uv = vec2(cos(angle), sin(angle));
 
-        float traveled = interval_start;
-
-        vec4 radiance_delta = raymarch(ray_dir_uv, normalized_probe_center, interval_start, interval_length, resolution_scale);
-
-        // Merge with upper cascade
-        if (hw_interp) {
-            radiance += merge_hw_interp(radiance_delta, index, probe_relative_pos, sqrt_base);
+        if (bilinear_fix) { // Raymarch will be for each upper probe
+            radiance += merge_bilinear_fix(ray_dir_uv, index, probe_relative_pos, sqrt_base);
         } else {
-            radiance += merge_manual_interp(radiance_delta, index, probe_relative_pos, sqrt_base);
-            // radiance += merge_bilinear_fix(radiance_delta, index, probe_relative_pos, sqrt_base);
+            vec4 radiance_delta = raymarch(ray_dir_uv, normalized_probe_center, interval_start, interval_length, resolution_scale);
+
+            // Merge with upper cascade
+            if (hw_interp) {
+                radiance += merge_hw_interp(radiance_delta, index, probe_relative_pos, sqrt_base);
+            } else {
+                radiance += merge_manual_interp(radiance_delta, index, probe_relative_pos, sqrt_base);
+            }
         }
+
     }
 
     vec3 res = radiance.rgb / float(base);

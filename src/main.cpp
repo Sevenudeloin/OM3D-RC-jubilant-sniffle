@@ -38,12 +38,13 @@ static bool flatland_clear_screen = false;
 static float flatland_drawing_color[4] = { 1.0, 1.0, 1.0, 1.0};
 static int flatland_line_width = 6; // in pixels
 
+static bool rc_bilinear_fix = false;
 static int rc_base = 4;
 static int rc_cascade_count = 10;
 static int rc_cascade_index = 0; // last cascade to be drawn
 static int rc_debug_display = 0; // 0 final rc, 1 SDF, 2 JFA, 3 draw
 
-#define HW_INTERP (false)
+#define RC_HW_INTERP (false)
 
 namespace OM3D {
 extern bool audit_bindings_before_draw;
@@ -177,6 +178,13 @@ void gui(ImGuiRenderer& imgui) {
             }
             ImGui::EndMenu();
         }
+
+#if !RC_HW_INTERP
+        if (ImGui::BeginMenu("RC Options")) { // Manual interp or hardware interp cant be decided at runtime
+            ImGui::Checkbox("Bilinear fix", &rc_bilinear_fix); // Can only be active if manual interpolation
+            ImGui::EndMenu();
+        }
+#endif
 
         // if (ImGui::BeginMenu("RC Base")) { // always 4 now i think
         //     if (ImGui::RadioButton("4", rc_base == 4)) {
@@ -490,7 +498,7 @@ struct RendererState {
             state.flatland_jfa_dist_texture = Texture(size, ImageFormat::R16_FLOAT); // Stores scene lights SDF
             state.flatland_scene_A_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
             state.flatland_scene_B_texture = Texture(size, ImageFormat::RGBA8_UNORM); // For RC pipeline
-#if !HW_INTERP // if no hardware interpolation
+#if !RC_HW_INTERP // if no hardware interpolation
             state.flatland_scene_A_texture.set_parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             state.flatland_scene_A_texture.set_parameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             state.flatland_scene_B_texture.set_parameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -716,7 +724,8 @@ int main(int argc, char** argv) {
                 flatland_raymarch_program->bind();
                 
                 flatland_raymarch_program->set_uniform<glm::vec2>("resolution", glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
-                flatland_raymarch_program->set_uniform<u32>("hw_interp", static_cast<u32>(HW_INTERP)); // bool
+                flatland_raymarch_program->set_uniform<u32>("hw_interp", static_cast<u32>(RC_HW_INTERP)); // bool
+                flatland_raymarch_program->set_uniform<u32>("bilinear_fix", static_cast<u32>(rc_bilinear_fix)); // bool
 
                 flatland_raymarch_program->set_uniform<float>("base", static_cast<float>(rc_base));
 
