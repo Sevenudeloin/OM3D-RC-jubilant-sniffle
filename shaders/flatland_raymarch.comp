@@ -115,7 +115,7 @@ vec4 merge_manual_interp(vec4 radiance_delta, float index, vec2 probe_relative_p
             mod(index, upper_spacing), floor(index / upper_spacing)
         ) * upper_size; // BL corner of corresponding sub-texture in upper cascade (TEXTURE PIXEL COORDINATES)
 
-        vec2 upper_tex_offset = ((cur_upper_relative_pos + 0.5) * upper_spacing) / sqrt_base;
+        vec2 upper_tex_offset = cur_upper_relative_pos + 0.5; // wise ancient mystical tree magic
         upper_tex_offset = clamp(upper_tex_offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
 
         upper_sample += texture(prev_image, (upper_tex_position + upper_tex_offset) / resolution) * bilinear_weights[i];
@@ -129,31 +129,35 @@ vec4 merge_bilinear_fix(vec4 radiance_delta, float index, vec2 probe_relative_po
         return radiance_delta;
     }
 
-    float upper_spacing = pow(sqrt_base, cascade_index + 1.0);
-    vec2 upper_size = floor(resolution / upper_spacing);
-    vec2 upper_position = vec2(
-        mod(index, upper_spacing), floor(index / upper_spacing)
-    ) * upper_size;
-
-    vec2 offset = (probe_relative_pos + 0.5) / sqrt_base;
-    offset = clamp(offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
-
-    vec4 upper_sample = texture(prev_image, (upper_position + offset) / resolution);
-    //
     float spacing = pow(sqrt_base, cascade_index);
-    vec2 size = floor(resolution / spacing);
     vec2 probe_center = (probe_relative_pos + 0.5) * spacing;
     vec2 normalized_probe_center = probe_center / resolution;
-    vec2 ray_dir_uv = normalize(upper_position - (normalized_probe_center * resolution));
 
-    float min_resolution = min(resolution.x, resolution.y);
-    float interval_start = (cascade_index == 0.0) ? 0.0 : (pow(base, cascade_index - 1.0)) / min_resolution;
-    float interval_length = (pow(base, cascade_index)) / min_resolution;
-    vec2 resolution_scale = min_resolution / resolution;
+    float upper_spacing = pow(sqrt_base, cascade_index + 1.0);
+    vec2 upper_size = floor(resolution / upper_spacing);
 
-    vec4 new_ray_hit = raymarch(ray_dir_uv, normalized_probe_center, interval_start, interval_length, resolution_scale);
+    vec2 tmp_upper_probe_pos = normalized_probe_center * upper_size - vec2(0.5);
+    ivec2 BL_upper_relative_pos = ivec2(floor(tmp_upper_probe_pos)); // BL probe relative pos (index) in Cn+1 (upper cascade)
+    vec2 upper_offset_ratio = fract(tmp_upper_probe_pos); // How much are we offset compared to BL upper probe (between the 4 upper probes)
 
-    return radiance_delta + upper_sample + new_ray_hit;
+    vec4 bilinear_weights = get_bilinear_weights(upper_offset_ratio);
+
+    vec4 upper_sample = vec4(0.0f);
+
+    for (int i = 0; i < base; i++) {
+        ivec2 cur_upper_relative_pos = clamp(BL_upper_relative_pos + get_bilinear_offset(i), ivec2(0), ivec2(upper_size) - ivec2(1)); // BL, BR, TL, TR
+
+        vec2 upper_tex_position = vec2(
+            mod(index, upper_spacing), floor(index / upper_spacing)
+        ) * upper_size; // BL corner of corresponding sub-texture in upper cascade (TEXTURE PIXEL COORDINATES)
+
+        vec2 upper_tex_offset = cur_upper_relative_pos + 0.5; // wise ancient mystical tree magic
+        upper_tex_offset = clamp(upper_tex_offset, vec2(0.5), upper_size - 0.5); // to avoid light leaking from other directions (when sampling in upper cascade)
+
+        upper_sample += texture(prev_image, (upper_tex_position + upper_tex_offset) / resolution) * bilinear_weights[i];
+    }
+
+    return radiance_delta + upper_sample;
 }
 
 void main() {
